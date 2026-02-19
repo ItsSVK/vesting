@@ -15,4 +15,8 @@ pub enum VestingError {
     GrantorIsBeneficiary,
     InsufficientBalance,
     InvalidStartTime,
+    #[msg("Cliff time hasn't pass")]
+    CliffNotPassed,
+    #[msg("Vesting is Inactive")]
+    VestingInactive,
 }

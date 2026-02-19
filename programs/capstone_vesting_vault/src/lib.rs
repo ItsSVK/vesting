@@ -23,7 +23,19 @@ pub mod capstone_vesting_vault {
         cliff_time: u64,
         vesting_duration: u64,
         total_amount: u64,
+        frequency: u64,
     ) -> Result<()> {
-        initialize::handler(ctx, start_time, cliff_time, vesting_duration, total_amount)
+        initialize::handler(
+            ctx,
+            start_time,
+            cliff_time,
+            vesting_duration,
+            total_amount,
+            frequency,
+        )
+    }
+
+    pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
+        withdraw::handler(ctx, amount)
     }
 }

@@ -54,6 +54,7 @@ pub fn handler(
     cliff_time: u64,
     vesting_duration: u64,
     total_amount: u64,
+    frequency: u64,
 ) -> Result<()> {
     require_gt!(total_amount, 0, VestingError::ZeroAmount);
     require_gt!(vesting_duration, 0, VestingError::ZeroDuration);
@@ -83,6 +84,7 @@ pub fn handler(
         total_withdrawn: 0,
         token_mint: ctx.accounts.token_mint.key(),
         is_active: true,
+        frequency,
         bump: ctx.bumps.vesting_state,
     });
 

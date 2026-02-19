@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 #[account]
-#[derive(InitSpace)]
+#[derive(InitSpace, Copy)]
 pub struct VestingState {
     pub grantor: Pubkey,
     pub beneficiary: Pubkey,
@@ -12,5 +12,6 @@ pub struct VestingState {
     pub total_withdrawn: u64,
     pub token_mint: Pubkey,
     pub is_active: bool,
+    pub frequency: u64,
     pub bump: u8,
 }
