@@ -45,36 +45,21 @@ pub struct Withdraw<'info> {
 pub fn handler(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
     let now = Clock::get()?.unix_timestamp as u64;
 
-    require_gte!(
-        now,
-        ctx.accounts.vesting_state.cliff_time,
-        VestingError::CliffNotPassed
-    );
-
-    require!(
-        ctx.accounts.vesting_state.is_active,
-        VestingError::VestingInactive
-    );
-
     let state = &ctx.accounts.vesting_state;
 
-    // How many full frequency periods have elapsed since cliff
-    let time_elapsed = now - state.cliff_time;
-    let completed_periods = time_elapsed / state.frequency;
+    // Logic:
+    // If active: calculate time-based vested amount.
+    // If inactive (revoked): everything remaining in the vault (up to total_amount) is vested.
+    // We assume revoke instruction updates total_amount to reflect the final vested amount.
 
-    // Tokens unlocked per period: multiply before divide to preserve u64 precision
-    // tokens_per_period = total_amount * frequency / vesting_duration
-    let tokens_per_period = state
-        .total_amount
-        .checked_mul(state.frequency)
-        .unwrap()
-        .checked_div(state.vesting_duration)
-        .unwrap();
+    let vested_amount = if state.is_active {
+        require_gte!(now, state.cliff_time, VestingError::CliffNotPassed);
+        state.vested_amount(now).unwrap()
+    } else {
+        state.total_amount
+    };
 
-    // Total vested so far = completed periods × tokens per period, capped at total_amount
-    let vested_till_now = (completed_periods * tokens_per_period).min(state.total_amount);
-
-    let available_to_withdraw = vested_till_now - state.total_withdrawn;
+    let available_to_withdraw = vested_amount.checked_sub(state.total_withdrawn).unwrap();
 
     require_gte!(
         available_to_withdraw,

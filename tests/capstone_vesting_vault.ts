@@ -131,6 +131,16 @@ function buildProgram(payer: Keypair): Program {
 }
 
 /**
+ * Asserts that a LiteSVM transaction succeeded.
+ */
+function assertSuccess(result: any, label: string) {
+  if (typeof result?.err === "function") {
+    const txErr = result.err();
+    assert.fail(`${label}: expected success but transaction failed: ${JSON.stringify(txErr)}`);
+  }
+}
+
+/**
  * Asserts that a LiteSVM transaction failed with a specific Anchor custom error code.
  */
 function assertCustomError(result: any, expectedCode: number, label: string) {
@@ -150,6 +160,7 @@ function assertCustomError(result: any, expectedCode: number, label: string) {
     expectedCode,
     `${label}: expected error code ${expectedCode}, got ${actualCode}`
   );
+
 }
 
 /** Reads the raw token balance from a token account via LiteSVM */
@@ -184,6 +195,7 @@ function setClock(svm: LiteSVM, unixTimestamp: number) {
 
 // ─── Error Codes (from IDL, offset 6000) ─────────────────────────────────────
 const ERR = {
+  NotZero:               6000,
   ZeroAmount:            6001,
   ZeroDuration:          6002,
   InvalidCliffTime:      6003,
@@ -255,7 +267,7 @@ describe("capstone_vesting_vault – initialize", () => {
     tx.sign(grantor);
 
     const result = svm.sendTransaction(tx);
-    assert.ok(!("err" in result), `Init failed: ${JSON.stringify((result as any).err)}`);
+    assertSuccess(result, "initialize success");
     assert.ok(svm.getAccount(vestingStatePda) !== null, "vesting_state should exist");
     assert.ok(svm.getAccount(vestingVault) !== null, "vesting_vault should exist");
   });
@@ -444,7 +456,7 @@ describe("capstone_vesting_vault – withdraw", () => {
     initTx.add(initIx);
     initTx.sign(grantor);
     const initResult = svm.sendTransaction(initTx);
-    assert.ok(!("err" in initResult), `Initialize failed: ${JSON.stringify(initResult)}`);
+    assertSuccess(initResult, "withdraw suite initialize");
   });
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -483,7 +495,7 @@ describe("capstone_vesting_vault – withdraw", () => {
     setClock(svm, BASE_TIME + THIRTY_DAYS + THIRTY_DAYS);
 
     const result = await callWithdraw(TOKENS_PER_PERIOD);
-    assert.ok(!("err" in result), `Withdraw period 1 failed: ${JSON.stringify(result)}`);
+    assertSuccess(result, "withdraw period 1");
 
     const balance = getTokenBalance(svm, beneficiaryAta);
     assert.strictEqual(balance, BigInt(TOKENS_PER_PERIOD), "beneficiary balance after period 1");
@@ -502,7 +514,7 @@ describe("capstone_vesting_vault – withdraw", () => {
 
     const partialAmount = TOKENS_PER_PERIOD / 2; // 150M
     const result = await callWithdraw(partialAmount);
-    assert.ok(!("err" in result), `Partial withdraw failed: ${JSON.stringify(result)}`);
+    assertSuccess(result, "partial withdraw period 2");
 
     const balance = getTokenBalance(svm, beneficiaryAta);
     // Previously had 300M, now has 300M + 150M = 450M
@@ -515,7 +527,7 @@ describe("capstone_vesting_vault – withdraw", () => {
 
     const remaining = TOKENS_PER_PERIOD / 2; // 150M remaining from period 2
     const result = await callWithdraw(remaining);
-    assert.ok(!("err" in result), `Second partial withdraw failed: ${JSON.stringify(result)}`);
+    assertSuccess(result, "second partial withdraw period 2");
 
     // Total: 300M (p1) + 150M + 150M (p2) = 600M = 2 full periods
     const balance = getTokenBalance(svm, beneficiaryAta);
@@ -534,7 +546,7 @@ describe("capstone_vesting_vault – withdraw", () => {
 
     const finalAmount = TOKENS_PER_PERIOD; // last 300M
     const result = await callWithdraw(finalAmount);
-    assert.ok(!("err" in result), `Final withdraw failed: ${JSON.stringify(result)}`);
+    assertSuccess(result, "final withdraw");
 
     // Beneficiary should now hold the entire totalAmount
     const balance = getTokenBalance(svm, beneficiaryAta);
@@ -556,73 +568,201 @@ describe("capstone_vesting_vault – withdraw", () => {
   // INACTIVE VESTING — uses a fresh isolated vault
   // ──────────────────────────────────────────────────────────────────────────
 
-  it("❌ fails with VestingInactive when is_active is flipped to false", async () => {
-    // Spin up fresh actors so we don't pollute the shared vault state
-    const g2 = Keypair.generate();
-    const b2 = Keypair.generate();
-    svm.airdrop(g2.publicKey, BigInt(10 * LAMPORTS_PER_SOL));
-    svm.airdrop(b2.publicKey, BigInt(10 * LAMPORTS_PER_SOL));
 
-    const mint2   = createMintAndMintTo(svm, g2, g2.publicKey, BigInt(totalAmount.toNumber() * 2));
-    const g2Ata   = getAssociatedTokenAddressSync(mint2.publicKey, g2.publicKey, false, TOKEN_PROGRAM_ID);
-    const [state2] = deriveVestingState(g2.publicKey, b2.publicKey);
-    const vault2  = getAssociatedTokenAddressSync(mint2.publicKey, state2, true, TOKEN_PROGRAM_ID);
-    const b2Ata   = getAssociatedTokenAddressSync(mint2.publicKey, b2.publicKey, false, TOKEN_PROGRAM_ID);
-    const b2Prog  = buildProgram(b2);
+});
 
-    // Initialize a fresh vault for g2/b2
+// ──────────────────────────────────────────────────────────────────────────
+// REVOKE & CLOSE TESTS
+// ──────────────────────────────────────────────────────────────────────────
+
+describe("capstone_vesting_vault – revoke", () => {
+  let svm: LiteSVM;
+  let grantor: Keypair;
+  let beneficiary: Keypair;
+  let mintKp: Keypair;
+  let grantorAta: PublicKey;
+  let vestingStatePda: PublicKey;
+  let vestingVault: PublicKey;
+  let beneficiaryAta: PublicKey;
+  let program: Program;
+
+  const BASE_TIME = 1_000_000;
+  // Standard setup: 30d cliff, 90d duration (3 periods), 900 tokens total
+  const startTime = new BN(BASE_TIME);
+  const cliffTime = new BN(BASE_TIME + THIRTY_DAYS);
+  const vestDuration = new BN(NINETY_DAYS);
+  const frequency = new BN(THIRTY_DAYS);
+  const totalAmount = new BN(900_000_000);
+  const TOKENS_PER_PERIOD = 300_000_000;
+
+  before(async () => {
+    svm = new LiteSVM().withDefaultPrograms();
+    svm.addProgramFromFile(PROGRAM_ID, "target/deploy/capstone_vesting_vault.so");
     setClock(svm, BASE_TIME);
-    const ix2 = await buildProgram(g2).methods
+
+    grantor = Keypair.generate();
+    beneficiary = Keypair.generate();
+    svm.airdrop(grantor.publicKey, BigInt(10 * LAMPORTS_PER_SOL));
+    svm.airdrop(beneficiary.publicKey, BigInt(10 * LAMPORTS_PER_SOL));
+
+    mintKp = createMintAndMintTo(svm, grantor, grantor.publicKey, BigInt(2000_000_000));
+    grantorAta = getAssociatedTokenAddressSync(mintKp.publicKey, grantor.publicKey, false, TOKEN_PROGRAM_ID);
+    [vestingStatePda] = deriveVestingState(grantor.publicKey, beneficiary.publicKey);
+    vestingVault = getAssociatedTokenAddressSync(mintKp.publicKey, vestingStatePda, true, TOKEN_PROGRAM_ID);
+    beneficiaryAta = getAssociatedTokenAddressSync(mintKp.publicKey, beneficiary.publicKey, false, TOKEN_PROGRAM_ID);
+    program = buildProgram(grantor);
+
+    // Initialize vault
+    const ix = await program.methods
       .initialize(startTime, cliffTime, vestDuration, totalAmount, frequency)
       .accounts({
-        grantor: g2.publicKey, beneficiary: b2.publicKey, tokenMint: mint2.publicKey,
-        grantorAta: g2Ata, vestingState: state2, vestingVault: vault2,
+        grantor: grantor.publicKey,
+        beneficiary: beneficiary.publicKey,
+        tokenMint: mintKp.publicKey,
+        grantorAta,
+        vestingState: vestingStatePda,
+        vestingVault,
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
       })
       .instruction();
 
-    const initTx2 = new Transaction();
-    initTx2.recentBlockhash = svm.latestBlockhash();
-    initTx2.feePayer = g2.publicKey;
-    initTx2.add(ix2);
-    initTx2.sign(g2);
-    const initRes2 = svm.sendTransaction(initTx2);
-    assert.ok(!("err" in initRes2), "Fresh vault init failed");
+    const tx = new Transaction();
+    tx.recentBlockhash = svm.latestBlockhash();
+    tx.feePayer = grantor.publicKey;
+    tx.add(ix);
+    tx.sign(grantor);
+    const initResult = svm.sendTransaction(tx);
+    assertSuccess(initResult, "revoke suite initialize");
+  });
 
-    // ── Manually flip is_active = false in account data ──────────────────
-    // VestingState byte layout (after 8-byte Anchor discriminator):
-    //   grantor[32], beneficiary[32], start_time[8], cliff_time[8],
-    //   vesting_duration[8], total_amount[8], total_withdrawn[8],
-    //   token_mint[32], is_active[1]
-    //   Offset = 8 + 32+32+8+8+8+8+8+32 = 8 + 136 = 144
-    const stateAcct2 = svm.getAccount(state2)!;
-    const data2 = Buffer.from(stateAcct2.data);
-    const IS_ACTIVE_OFFSET = 8 + 32 + 32 + 8 + 8 + 8 + 8 + 8 + 32; // = 144
-    data2[IS_ACTIVE_OFFSET] = 0; // false
-    svm.setAccount(state2, { ...stateAcct2, data: data2 });
+  it("✅ revokes halfway through vesting (1 period elapsed)", async () => {
+    // 1. Advance time to 1 period elapsed (30d cliff + 30d period 1 + 1s)
+    // Vested should be 300M. Unvested 600M.
+    setClock(svm, BASE_TIME + THIRTY_DAYS + THIRTY_DAYS + 1);    
+    
+    // Check initial vault balance = 900M
+    assert.strictEqual(getTokenBalance(svm, vestingVault), BigInt(totalAmount.toNumber()));
 
-    // Advance past cliff, then try to withdraw — should be blocked
-    setClock(svm, BASE_TIME + THIRTY_DAYS + THIRTY_DAYS);
-
-    const wIx = await b2Prog.methods
-      .withdraw(new BN(1))
+    // 2. Call Revoke
+    const ix = await program.methods
+      .revoke()
       .accounts({
-        beneficiary: b2.publicKey, grantor: g2.publicKey, vestingState: state2,
-        vestingVault: vault2, tokenMint: mint2.publicKey, beneficiaryAta: b2Ata,
+        grantor: grantor.publicKey,
+        beneficiary: beneficiary.publicKey,
+        vestingState: vestingStatePda,
+        vestingVault,
+        tokenMint: mintKp.publicKey,
+        grantorAta,
         tokenProgram: TOKEN_PROGRAM_ID,
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
       })
       .instruction();
 
-    const wTx = new Transaction();
-    wTx.recentBlockhash = svm.latestBlockhash();
-    wTx.feePayer = b2.publicKey;
-    wTx.add(wIx);
-    wTx.sign(b2);
+    svm.expireBlockhash();
+    const tx = new Transaction();
+    tx.recentBlockhash = svm.latestBlockhash();
+    tx.feePayer = grantor.publicKey;
+    tx.add(ix);
+    tx.sign(grantor);
+    
+    const result = svm.sendTransaction(tx);
+    assertSuccess(result, "revoke");
 
-    assertCustomError(svm.sendTransaction(wTx), ERR.VestingInactive, "VestingInactive");
+    // 3. Verify balances
+    // Grantor should have received unvested amount (600M) back.
+    // Originally minted 2000M, initialized 900M -> 1100M left.
+    // Now receiving 600M back -> 1700M total
+    const grantorBalance = getTokenBalance(svm, grantorAta);
+    // Rough check: it increased by 600M from before revoke
+    // Let's check specifically vault balance.
+    // Vault should have 300M remaining (the vested portion).
+    const vaultBalance = getTokenBalance(svm, vestingVault);
+    assert.strictEqual(vaultBalance, BigInt(TOKENS_PER_PERIOD), "Vault should keep vested tokens");
+
+    // 4. Verify state is inactive
+    const state = svm.getAccount(vestingStatePda);
+    const data = Buffer.from(state!.data);
+    // is_active offset logic again: 8 + 32+32+8+8+8+8+8+32 = 144
+    assert.strictEqual(data[144], 0, "is_active should be 0 (false)");
+
+    // 5. Verify total_amount updated to vested amount? 
+    // total_amount is at offset 8+32+32+8+8+8 = 96. u64 LE.
+    const newTotal = data.readBigUInt64LE(96);
+    assert.strictEqual(newTotal, BigInt(TOKENS_PER_PERIOD), "total_amount should be updated to vested amount");
+  });
+
+  it("✅ allows beneficiary to withdraw the remaining vested tokens after revoke", async () => {
+    // Current time is still (cliff + period 1 + 1s).
+    // Vault has 300M. Total amount is 300M. Withdrawn 0.
+    // Beneficiary requests full 300M.
+    
+    const bProg = buildProgram(beneficiary);
+    // init_if_needed creates ATA
+    const beneficiaryAta = getAssociatedTokenAddressSync(mintKp.publicKey, beneficiary.publicKey, false, TOKEN_PROGRAM_ID);
+    
+    const ix = await bProg.methods
+      .withdraw(new BN(TOKENS_PER_PERIOD))
+      .accounts({
+        beneficiary: beneficiary.publicKey,
+        grantor: grantor.publicKey,
+        vestingState: vestingStatePda,
+        vestingVault,
+        tokenMint: mintKp.publicKey,
+        beneficiaryAta,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      })
+      .instruction();
+
+    svm.expireBlockhash();
+    const tx = new Transaction();
+    tx.recentBlockhash = svm.latestBlockhash();
+    tx.feePayer = beneficiary.publicKey;
+    tx.add(ix);
+    tx.sign(beneficiary);
+
+    const result = svm.sendTransaction(tx);
+    assertSuccess(result, "post-revoke withdraw");
+
+    const balance = getTokenBalance(svm, beneficiaryAta);
+    assert.strictEqual(balance, BigInt(TOKENS_PER_PERIOD), "Beneficiary got vested tokens");
+    
+    const vaultBal = getTokenBalance(svm, vestingVault);
+    assert.strictEqual(vaultBal, BigInt(0), "Vault empty");
+  });
+
+  it("✅ allows closing the empty vault", async () => {
+    // Vault is empty. Call Close.
+    const ix = await program.methods
+      .close()
+      .accounts({
+        grantor: grantor.publicKey,
+        beneficiary: beneficiary.publicKey,
+        vestingState: vestingStatePda,
+        vestingVault,
+        tokenMint: mintKp.publicKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      })
+      .instruction();
+
+    svm.expireBlockhash();
+    const tx = new Transaction();
+    tx.recentBlockhash = svm.latestBlockhash();
+    tx.feePayer = grantor.publicKey;
+    tx.add(ix);
+    tx.sign(grantor);
+
+    const result = svm.sendTransaction(tx);
+    assertSuccess(result, "close");
+
+    // Verify accounts closed
+    assert.strictEqual(svm.getAccount(vestingStatePda), null, "State account closed");
+    assert.strictEqual(svm.getAccount(vestingVault), null, "Vault account closed");
   });
 });

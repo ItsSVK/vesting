@@ -2,8 +2,8 @@ use anchor_lang::prelude::*;
 
 #[error_code]
 pub enum VestingError {
-    #[msg("Custom error message")]
-    CustomError,
+    #[msg("Account is not empty")]
+    NotZero,
     #[msg("Amount cant be zero")]
     ZeroAmount,
     #[msg("Duration cant be zero")]

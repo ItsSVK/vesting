@@ -38,4 +38,12 @@ pub mod capstone_vesting_vault {
     pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
         withdraw::handler(ctx, amount)
     }
+
+    pub fn revoke(ctx: Context<Revoke>) -> Result<()> {
+        revoke::handler(ctx)
+    }
+
+    pub fn close(ctx: Context<Close>) -> Result<()> {
+        close::handler(ctx)
+    }
 }
