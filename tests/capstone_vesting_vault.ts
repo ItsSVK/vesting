@@ -246,7 +246,7 @@ describe("capstone_vesting_vault – initialize", () => {
 
   it("initializes the vesting vault successfully", async () => {
     const ix = await program.methods
-      .initialize(startTime, cliffTime, vestingDuration, totalAmount, frequency)
+      .initialize(startTime, cliffTime, vestingDuration, totalAmount.div(new BN(10 ** TOKEN_DECIMALS)), frequency)
       .accounts({
         grantor: grantor.publicKey,
         beneficiary: beneficiary.publicKey,
@@ -306,7 +306,7 @@ describe("capstone_vesting_vault – initialize", () => {
     const prog = buildProgram(g);
 
     const ix = await prog.methods
-      .initialize(startTime, new BN(now - 100), vestingDuration, totalAmount, frequency)
+      .initialize(startTime, new BN(now - 100), vestingDuration, totalAmount.div(new BN(10 ** TOKEN_DECIMALS)), frequency)
       .accounts({ grantor: g.publicKey, beneficiary: b.publicKey, tokenMint: mint.publicKey, grantorAta: gAta, vestingState: state, vestingVault: vault, associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID, tokenProgram: TOKEN_PROGRAM_ID, systemProgram: SystemProgram.programId })
       .instruction();
 
@@ -328,7 +328,7 @@ describe("capstone_vesting_vault – initialize", () => {
     const prog = buildProgram(g);
 
     const ix = await prog.methods
-      .initialize(startTime, cliffTime, vestingDuration, totalAmount, frequency)
+      .initialize(startTime, cliffTime, vestingDuration, totalAmount.div(new BN(10 ** TOKEN_DECIMALS)), frequency)
       .accounts({ grantor: g.publicKey, beneficiary: g.publicKey, tokenMint: mint.publicKey, grantorAta: gAta, vestingState: state, vestingVault: vault, associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID, tokenProgram: TOKEN_PROGRAM_ID, systemProgram: SystemProgram.programId })
       .instruction();
 
@@ -379,14 +379,15 @@ describe("capstone_vesting_vault – withdraw", () => {
   const cliffTime    = new BN(BASE_TIME + THIRTY_DAYS);
   const vestDuration = new BN(NINETY_DAYS);
   const frequency    = new BN(THIRTY_DAYS);
-  // 900_000_000 divides cleanly into 3 periods of 300_000_000 each
-  const totalAmount     = new BN(900_000_000);
-  const TOKENS_PER_PERIOD = 300_000_000;
+  // 900 divides cleanly into 3 periods of 300 each
+  const totalAmount     = new BN(900);
+  const TOKENS_PER_PERIOD = 300;
+  const DECIMAL_MULTIPLIER = 10 ** TOKEN_DECIMALS;
 
   /** Helper: sends a withdraw instruction signed by the beneficiary */
   async function callWithdraw(amount: number): Promise<any> {
     const ix = await beneficiaryProgram.methods
-      .withdraw(new BN(amount))
+      .withdraw(new BN(amount * DECIMAL_MULTIPLIER))
       .accounts({
         beneficiary: beneficiary.publicKey,
         grantor: grantor.publicKey,
@@ -423,7 +424,7 @@ describe("capstone_vesting_vault – withdraw", () => {
     svm.airdrop(grantor.publicKey,     BigInt(10 * LAMPORTS_PER_SOL));
     svm.airdrop(beneficiary.publicKey, BigInt(10 * LAMPORTS_PER_SOL));
 
-    mintKp = createMintAndMintTo(svm, grantor, grantor.publicKey, BigInt(totalAmount.toNumber() * 2));
+    mintKp = createMintAndMintTo(svm, grantor, grantor.publicKey, BigInt(totalAmount.toNumber() * DECIMAL_MULTIPLIER * 2));
     grantorAta = getAssociatedTokenAddressSync(mintKp.publicKey, grantor.publicKey, false, TOKEN_PROGRAM_ID);
 
     [vestingStatePda] = deriveVestingState(grantor.publicKey, beneficiary.publicKey);
@@ -498,7 +499,7 @@ describe("capstone_vesting_vault – withdraw", () => {
     assertSuccess(result, "withdraw period 1");
 
     const balance = getTokenBalance(svm, beneficiaryAta);
-    assert.strictEqual(balance, BigInt(TOKENS_PER_PERIOD), "beneficiary balance after period 1");
+    assert.strictEqual(balance, BigInt(TOKENS_PER_PERIOD * DECIMAL_MULTIPLIER), "beneficiary balance after period 1");
   });
 
   it("❌ fails with InsufficientBalance right after draining period 1", async () => {
@@ -518,7 +519,7 @@ describe("capstone_vesting_vault – withdraw", () => {
 
     const balance = getTokenBalance(svm, beneficiaryAta);
     // Previously had 300M, now has 300M + 150M = 450M
-    assert.strictEqual(balance, BigInt(TOKENS_PER_PERIOD + partialAmount));
+    assert.strictEqual(balance, BigInt((TOKENS_PER_PERIOD + partialAmount) * DECIMAL_MULTIPLIER));
   });
 
   it("✅ withdraws the remaining tokens left from period 2", async () => {
@@ -531,7 +532,7 @@ describe("capstone_vesting_vault – withdraw", () => {
 
     // Total: 300M (p1) + 150M + 150M (p2) = 600M = 2 full periods
     const balance = getTokenBalance(svm, beneficiaryAta);
-    assert.strictEqual(balance, BigInt(2 * TOKENS_PER_PERIOD));
+    assert.strictEqual(balance, BigInt(2 * TOKENS_PER_PERIOD * DECIMAL_MULTIPLIER));
   });
 
   it("❌ fails after fully draining period 2 — period 3 hasn't elapsed yet", async () => {
@@ -550,7 +551,7 @@ describe("capstone_vesting_vault – withdraw", () => {
 
     // Beneficiary should now hold the entire totalAmount
     const balance = getTokenBalance(svm, beneficiaryAta);
-    assert.strictEqual(balance, BigInt(totalAmount.toNumber()), "all tokens received");
+    assert.strictEqual(balance, BigInt(totalAmount.toNumber() * DECIMAL_MULTIPLIER), "all tokens received");
 
     // Vault should be completely empty
     const vaultBalance = getTokenBalance(svm, vestingVault);
@@ -592,8 +593,9 @@ describe("capstone_vesting_vault – revoke", () => {
   const cliffTime = new BN(BASE_TIME + THIRTY_DAYS);
   const vestDuration = new BN(NINETY_DAYS);
   const frequency = new BN(THIRTY_DAYS);
-  const totalAmount = new BN(900_000_000);
-  const TOKENS_PER_PERIOD = 300_000_000;
+  const totalAmount = new BN(900);
+  const TOKENS_PER_PERIOD = 300;
+  const DECIMAL_MULTIPLIER = 10 ** TOKEN_DECIMALS;
 
   before(async () => {
     svm = new LiteSVM().withDefaultPrograms();
@@ -639,11 +641,11 @@ describe("capstone_vesting_vault – revoke", () => {
 
   it("✅ revokes halfway through vesting (1 period elapsed)", async () => {
     // 1. Advance time to 1 period elapsed (30d cliff + 30d period 1 + 1s)
-    // Vested should be 300M. Unvested 600M.
+    // Vested should be 300. Unvested 600. Inside vault: *10^6
     setClock(svm, BASE_TIME + THIRTY_DAYS + THIRTY_DAYS + 1);    
     
-    // Check initial vault balance = 900M
-    assert.strictEqual(getTokenBalance(svm, vestingVault), BigInt(totalAmount.toNumber()));
+    // Check initial vault balance = 900 * 10^6
+    assert.strictEqual(getTokenBalance(svm, vestingVault), BigInt(totalAmount.toNumber() * DECIMAL_MULTIPLIER));
 
     // 2. Call Revoke
     const ix = await program.methods
@@ -680,7 +682,7 @@ describe("capstone_vesting_vault – revoke", () => {
     // Let's check specifically vault balance.
     // Vault should have 300M remaining (the vested portion).
     const vaultBalance = getTokenBalance(svm, vestingVault);
-    assert.strictEqual(vaultBalance, BigInt(TOKENS_PER_PERIOD), "Vault should keep vested tokens");
+    assert.strictEqual(vaultBalance, BigInt(TOKENS_PER_PERIOD * DECIMAL_MULTIPLIER), "Vault should keep vested tokens");
 
     // 4. Verify state is inactive
     const state = svm.getAccount(vestingStatePda);
@@ -691,7 +693,7 @@ describe("capstone_vesting_vault – revoke", () => {
     // 5. Verify total_amount updated to vested amount? 
     // total_amount is at offset 8+32+32+8+8+8 = 96. u64 LE.
     const newTotal = data.readBigUInt64LE(96);
-    assert.strictEqual(newTotal, BigInt(TOKENS_PER_PERIOD), "total_amount should be updated to vested amount");
+    assert.strictEqual(newTotal, BigInt(TOKENS_PER_PERIOD * DECIMAL_MULTIPLIER), "total_amount should be updated to vested amount");
   });
 
   it("✅ allows beneficiary to withdraw the remaining vested tokens after revoke", async () => {
@@ -704,7 +706,7 @@ describe("capstone_vesting_vault – revoke", () => {
     const beneficiaryAta = getAssociatedTokenAddressSync(mintKp.publicKey, beneficiary.publicKey, false, TOKEN_PROGRAM_ID);
     
     const ix = await bProg.methods
-      .withdraw(new BN(TOKENS_PER_PERIOD))
+      .withdraw(new BN(TOKENS_PER_PERIOD * DECIMAL_MULTIPLIER))
       .accounts({
         beneficiary: beneficiary.publicKey,
         grantor: grantor.publicKey,
@@ -729,7 +731,7 @@ describe("capstone_vesting_vault – revoke", () => {
     assertSuccess(result, "post-revoke withdraw");
 
     const balance = getTokenBalance(svm, beneficiaryAta);
-    assert.strictEqual(balance, BigInt(TOKENS_PER_PERIOD), "Beneficiary got vested tokens");
+    assert.strictEqual(balance, BigInt(TOKENS_PER_PERIOD * DECIMAL_MULTIPLIER), "Beneficiary got vested tokens");
     
     const vaultBal = getTokenBalance(svm, vestingVault);
     assert.strictEqual(vaultBal, BigInt(0), "Vault empty");

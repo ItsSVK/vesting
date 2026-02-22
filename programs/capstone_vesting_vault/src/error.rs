@@ -19,4 +19,6 @@ pub enum VestingError {
     CliffNotPassed,
     #[msg("Vesting is Inactive")]
     VestingInactive,
+    #[msg("Frequency cant be zero")]
+    ZeroFrequency,
 }

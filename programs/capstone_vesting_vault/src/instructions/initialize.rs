@@ -57,8 +57,11 @@ pub fn handler(
     frequency: u64,
 ) -> Result<()> {
     require_gt!(total_amount, 0, VestingError::ZeroAmount);
+    require_gt!(frequency, 0, VestingError::ZeroFrequency);
     require_gt!(vesting_duration, 0, VestingError::ZeroDuration);
     require_gte!(cliff_time, start_time, VestingError::InvalidCliffTime);
+
+    let total_amount = total_amount * 10u64.pow(ctx.accounts.token_mint.decimals as u32);
 
     transfer_checked(
         CpiContext::new(
