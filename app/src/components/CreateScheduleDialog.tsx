@@ -48,35 +48,31 @@ export function CreateScheduleDialog() {
     },
   });
 
+  // Map string unit values to Anchor enum format
+  const TimeUnit: Record<string, object> = {
+    Sec:   { sec: {} },
+    Min:   { min: {} },
+    Hour:  { hour: {} },
+    Day:   { day: {} },
+    Week:  { week: {} },
+    Month: { month: {} },
+    Year:  { year: {} },
+  };
+
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     if (!program || !wallet) return;
-    // setLoading(true);
-
-    console.log(values);
+    setLoading(true);
 
     try {
         const beneficiaryPubkey = new PublicKey(values.beneficiary);
         const tokenMintPubkey = new PublicKey(values.tokenMint);
         
-        // Time calculations
-        let multiplier = 1; 
-        switch (values.unit) {
-            case 'Min': multiplier = 60; break;
-            case 'Hour': multiplier = 60 * 60; break;
-            case 'Day': multiplier = 24 * 60 * 60; break;
-            case 'Week': multiplier = 7 * 24 * 60 * 60; break;
-            case 'Month': multiplier = 30 * 24 * 60 * 60; break; 
-            case 'Year': multiplier = 365 * 24 * 60 * 60; break; 
-        }
-        
-        const now = Math.floor(Date.now() / 1000);
-        const startTime = new BN(now);
-        const cliffTime = new BN(now + (values.cliffDays * multiplier)); 
-        const vestingDuration = new BN(values.vestingDurationDays * multiplier);
-        const frequency = new BN(values.frequencyDays * multiplier);
-        
-        // Amount
+        // Contract now takes raw durations — it multiplies by the unit internally
+        const cliffDuration = new BN(values.cliffDays);
+        const vestingDuration = new BN(values.vestingDurationDays);
+        const frequency = new BN(values.frequencyDays);
         const amount = new BN(values.totalAmount);
+        const unit = TimeUnit[values.unit];
 
         // PDAs and ATAs
         const [vestingStatePda] = PublicKey.findProgramAddressSync(
@@ -86,10 +82,8 @@ export function CreateScheduleDialog() {
         const vestingVault = getAssociatedTokenAddressSync(tokenMintPubkey, vestingStatePda, true);
         const grantorAta = getAssociatedTokenAddressSync(tokenMintPubkey, wallet.publicKey);
 
-        // console.log({startTime: startTime.toNumber(), cliffTime: cliffTime.toNumber(), vestingDuration: vestingDuration.toNumber(), amount: amount.toNumber(), frequency: frequency.toNumber()})
-
         const tx = await program.methods
-            .initialize(startTime, cliffTime, vestingDuration, amount, frequency)
+            .initialize(cliffDuration, vestingDuration, amount, frequency, unit)
             .accounts({
                 grantor: wallet.publicKey,
                 beneficiary: beneficiaryPubkey,

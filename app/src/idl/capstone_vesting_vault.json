@@ -1,5 +1,5 @@
 {
-  "address": "F4sps74oJaGCmos1mZNUsa98nb4zrp55gmQEtY4FPHt6",
+  "address": "HZjAbbJD1oNqesqMoCLpQK1CEATEnV8G1NFG9eQ1wtNH",
   "metadata": {
     "name": "capstone_vesting_vault",
     "version": "0.1.0",
@@ -325,11 +325,7 @@
       ],
       "args": [
         {
-          "name": "start_time",
-          "type": "u64"
-        },
-        {
-          "name": "cliff_time",
+          "name": "cliff_duration",
           "type": "u64"
         },
         {
@@ -343,6 +339,14 @@
         {
           "name": "frequency",
           "type": "u64"
+        },
+        {
+          "name": "unit",
+          "type": {
+            "defined": {
+              "name": "TimeUnit"
+            }
+          }
         }
       ]
     },
@@ -551,10 +555,16 @@
         {
           "name": "beneficiary",
           "writable": true,
-          "signer": true
+          "signer": true,
+          "relations": [
+            "vesting_state"
+          ]
         },
         {
-          "name": "grantor"
+          "name": "grantor",
+          "relations": [
+            "vesting_state"
+          ]
         },
         {
           "name": "vesting_state",
@@ -789,9 +799,53 @@
       "code": 6009,
       "name": "VestingInactive",
       "msg": "Vesting is Inactive"
+    },
+    {
+      "code": 6010,
+      "name": "ZeroFrequency",
+      "msg": "Frequency cant be zero"
+    },
+    {
+      "code": 6011,
+      "name": "ZeroCliffTime",
+      "msg": "Cliff time cant be zero"
+    },
+    {
+      "code": 6012,
+      "name": "FrequencyExceedsVestingDuration",
+      "msg": "Frequency exceeds vesting duration"
     }
   ],
   "types": [
+    {
+      "name": "TimeUnit",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Sec"
+          },
+          {
+            "name": "Min"
+          },
+          {
+            "name": "Hour"
+          },
+          {
+            "name": "Day"
+          },
+          {
+            "name": "Week"
+          },
+          {
+            "name": "Month"
+          },
+          {
+            "name": "Year"
+          }
+        ]
+      }
+    },
     {
       "name": "VestingState",
       "type": {
@@ -814,7 +868,7 @@
             "type": "u64"
           },
           {
-            "name": "vesting_duration",
+            "name": "vesting_end_time",
             "type": "u64"
           },
           {

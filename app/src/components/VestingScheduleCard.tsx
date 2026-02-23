@@ -19,15 +19,18 @@ export const VestingScheduleCard: FC<VestingScheduleCardProps> = ({ schedule, on
   const isBeneficiary = wallet?.publicKey?.toString() === acc.beneficiary.toString();
   const isGrantor = wallet?.publicKey?.toString() === acc.grantor.toString();
 
-  // Basic vesting logic mirroring the smart contract
+  // Basic vesting logic mirroring the smart contract's VestingState::vested_amount()
   const now = new BN(Math.floor(Date.now() / 1000));
   let claimable = new BN(0);
   
   if (acc.isActive && now.gte(acc.cliffTime)) {
-      const periodsPassed = now.sub(acc.cliffTime).div(acc.frequency);
-      const tokensPerPeriod = acc.totalAmount.mul(acc.frequency).div(acc.vestingDuration);
+      const timeElapsed = now.sub(acc.cliffTime);
+      const completedPeriods = timeElapsed.div(acc.frequency);
+      const totalDuration = acc.vestingEndTime.sub(acc.startTime);
+      const totalPeriods = totalDuration.div(acc.frequency);
+      const tokensPerPeriod = acc.totalAmount.div(totalPeriods);
       
-      let vestedTillNow = periodsPassed.mul(tokensPerPeriod);
+      let vestedTillNow = completedPeriods.mul(tokensPerPeriod);
       if (vestedTillNow.gt(acc.totalAmount)) {
           vestedTillNow = acc.totalAmount;
       }
@@ -35,18 +38,26 @@ export const VestingScheduleCard: FC<VestingScheduleCardProps> = ({ schedule, on
       claimable = vestedTillNow.sub(acc.totalWithdrawn);
   }
 
+  // Derive the vestingVault ATA (it's owned by the vestingState PDA)
+  const vestingVault = getAssociatedTokenAddressSync(acc.tokenMint, schedule.publicKey, true);
+
+  // Convert scaled claimable (with decimals) to raw amount for the contract
+  // The contract auto-scales by 10^decimals, so we need to pass raw tokens
+  const TOKEN_DECIMALS = 6;
+  const claimableRaw = claimable.div(new BN(10 ** TOKEN_DECIMALS));
+
   const handleClaim = async () => {
       if (!program || !wallet) return;
       try {
           const beneficiaryAta = getAssociatedTokenAddressSync(acc.tokenMint, wallet.publicKey);
 
           const tx = await program.methods
-              .withdraw(claimable)
+              .withdraw(claimableRaw)
               .accounts({
                   beneficiary: wallet.publicKey,
                   grantor: acc.grantor,
                   vestingState: schedule.publicKey,
-                  vestingVault: acc.vestingVault,
+                  vestingVault,
                   tokenMint: acc.tokenMint,
                   beneficiaryAta: beneficiaryAta,
                   tokenProgram: TOKEN_PROGRAM_ID,
@@ -79,7 +90,7 @@ export const VestingScheduleCard: FC<VestingScheduleCardProps> = ({ schedule, on
                 grantor: wallet.publicKey,
                 beneficiary: acc.beneficiary,
                 vestingState: schedule.publicKey,
-                vestingVault: acc.vestingVault,
+                vestingVault,
                 tokenMint: acc.tokenMint,
                 grantorAta,
                 tokenProgram: TOKEN_PROGRAM_ID,
@@ -110,7 +121,7 @@ export const VestingScheduleCard: FC<VestingScheduleCardProps> = ({ schedule, on
                 grantor: wallet.publicKey,
                 beneficiary: acc.beneficiary,
                 vestingState: schedule.publicKey,
-                vestingVault: acc.vestingVault,
+                vestingVault,
                 tokenMint: acc.tokenMint,
                 tokenProgram: TOKEN_PROGRAM_ID,
                 associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -154,7 +165,7 @@ export const VestingScheduleCard: FC<VestingScheduleCardProps> = ({ schedule, on
              </span>
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
-             Ends: {formatDate(acc.cliffTime.add(acc.vestingDuration))}
+             Ends: {formatDate(acc.vestingEndTime)}
           </p>
         </div>
       </div>

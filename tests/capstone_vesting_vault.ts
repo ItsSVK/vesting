@@ -26,7 +26,7 @@ import idl from "../target/idl/capstone_vesting_vault.json";
 const PROGRAM_ID = new PublicKey(idl.address);
 const TOKEN_DECIMALS = 6;
 const MINT_AMOUNT = new BN(1_000_000_000); // 1000 tokens (with 6 decimals)
-const VEST_AMOUNT = new BN(500_000_000);   // 500 tokens to vest
+const VEST_AMOUNT = new BN(500);           // 500 tokens (raw, contract scales by decimals)
 
 // ─── Time constants (in seconds) ─────────────────────────────────────────────
 const ONE_DAY = 60 * 60 * 24;
@@ -205,9 +205,25 @@ const ERR = {
   InvalidStartTime:      6007,
   CliffNotPassed:        6008,
   VestingInactive:       6009,
+  ZeroFrequency:         6010,
+  ZeroCliffTime:         6011,
+  FrequencyExceedsVestingDuration: 6012,
 } as const;
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
+
+// =============================================================================
+// INITIALIZE TESTS
+// =============================================================================
+//
+// KEY CHANGES in the updated contract:
+//   - initialize(cliff_duration, vesting_duration, total_amount, frequency, unit)
+//   - start_time is auto-set from Clock::get() — no longer passed as argument
+//   - total_amount is passed in raw tokens; contract scales by 10^decimals
+//   - TimeUnit enum: { sec, min, hour, day, week, month, year }
+//   - cliff_duration and vesting_duration are multiplied by the unit's
+//     multiplier on-chain (e.g. Day → ×86400)
+// =============================================================================
 
 describe("capstone_vesting_vault – initialize", () => {
   let svm: LiteSVM;
@@ -219,12 +235,13 @@ describe("capstone_vesting_vault – initialize", () => {
   let vestingVault: PublicKey;
   let program: Program;
 
-  const now = Math.floor(Date.now() / 1000);
-  const startTime = new BN(now);
-  const cliffTime = new BN(now + THIRTY_DAYS);
-  const frequency = new BN(THIRTY_DAYS);
-  const vestingDuration = new BN(60 * 60 * 24 * 365); // 1 year
-  const totalAmount = new BN(VEST_AMOUNT.toString());
+  // Using Sec unit so durations are in raw seconds — simplest for testing
+  const UNIT = { sec: {} };
+
+  const cliffDuration     = new BN(THIRTY_DAYS);         // 30 days in seconds
+  const vestingDuration   = new BN(60 * 60 * 24 * 365);  // 1 year in seconds
+  const frequency         = new BN(THIRTY_DAYS);          // 30 days in seconds
+  const totalAmount       = new BN(VEST_AMOUNT.toString()); // 500 tokens (raw)
 
   before(() => {
     svm = new LiteSVM().withDefaultPrograms();
@@ -246,7 +263,7 @@ describe("capstone_vesting_vault – initialize", () => {
 
   it("initializes the vesting vault successfully", async () => {
     const ix = await program.methods
-      .initialize(startTime, cliffTime, vestingDuration, totalAmount.div(new BN(10 ** TOKEN_DECIMALS)), frequency)
+      .initialize(cliffDuration, vestingDuration, totalAmount, frequency, UNIT)
       .accounts({
         grantor: grantor.publicKey,
         beneficiary: beneficiary.publicKey,
@@ -283,7 +300,7 @@ describe("capstone_vesting_vault – initialize", () => {
     const prog = buildProgram(g);
 
     const ix = await prog.methods
-      .initialize(startTime, cliffTime, vestingDuration, new BN(0), frequency)
+      .initialize(cliffDuration, vestingDuration, new BN(0), frequency, UNIT)
       .accounts({ grantor: g.publicKey, beneficiary: b.publicKey, tokenMint: mint.publicKey, grantorAta: gAta, vestingState: state, vestingVault: vault, associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID, tokenProgram: TOKEN_PROGRAM_ID, systemProgram: SystemProgram.programId })
       .instruction();
 
@@ -295,7 +312,7 @@ describe("capstone_vesting_vault – initialize", () => {
     assertCustomError(svm.sendTransaction(tx), ERR.ZeroAmount, "ZeroAmount");
   });
 
-  it("fails when cliff_time is before start_time", async () => {
+  it("fails when cliff_duration is zero", async () => {
     const g = Keypair.generate();
     const b = Keypair.generate();
     svm.airdrop(g.publicKey, BigInt(10 * LAMPORTS_PER_SOL));
@@ -306,7 +323,7 @@ describe("capstone_vesting_vault – initialize", () => {
     const prog = buildProgram(g);
 
     const ix = await prog.methods
-      .initialize(startTime, new BN(now - 100), vestingDuration, totalAmount.div(new BN(10 ** TOKEN_DECIMALS)), frequency)
+      .initialize(new BN(0), vestingDuration, totalAmount, frequency, UNIT)
       .accounts({ grantor: g.publicKey, beneficiary: b.publicKey, tokenMint: mint.publicKey, grantorAta: gAta, vestingState: state, vestingVault: vault, associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID, tokenProgram: TOKEN_PROGRAM_ID, systemProgram: SystemProgram.programId })
       .instruction();
 
@@ -315,7 +332,55 @@ describe("capstone_vesting_vault – initialize", () => {
     tx.feePayer = g.publicKey;
     tx.add(ix);
     tx.sign(g);
-    assertCustomError(svm.sendTransaction(tx), ERR.InvalidCliffTime, "InvalidCliffTime");
+    assertCustomError(svm.sendTransaction(tx), ERR.ZeroCliffTime, "ZeroCliffTime");
+  });
+
+  it("fails when cliff_duration exceeds vesting_duration", async () => {
+    const g = Keypair.generate();
+    const b = Keypair.generate();
+    svm.airdrop(g.publicKey, BigInt(10 * LAMPORTS_PER_SOL));
+    const mint = createMintAndMintTo(svm, g, g.publicKey, MINT_AMOUNT);
+    const gAta = getAssociatedTokenAddressSync(mint.publicKey, g.publicKey, false, TOKEN_PROGRAM_ID);
+    const [state] = deriveVestingState(g.publicKey, b.publicKey);
+    const vault = getAssociatedTokenAddressSync(mint.publicKey, state, true, TOKEN_PROGRAM_ID);
+    const prog = buildProgram(g);
+
+    // cliff_duration (100 days) > vesting_duration (90 days) → should fail
+    const ix = await prog.methods
+      .initialize(new BN(ONE_DAY * 100), new BN(NINETY_DAYS), totalAmount, frequency, UNIT)
+      .accounts({ grantor: g.publicKey, beneficiary: b.publicKey, tokenMint: mint.publicKey, grantorAta: gAta, vestingState: state, vestingVault: vault, associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID, tokenProgram: TOKEN_PROGRAM_ID, systemProgram: SystemProgram.programId })
+      .instruction();
+
+    const tx = new Transaction();
+    tx.recentBlockhash = svm.latestBlockhash();
+    tx.feePayer = g.publicKey;
+    tx.add(ix);
+    tx.sign(g);
+    assertCustomError(svm.sendTransaction(tx), ERR.CliffExceedsVestingEnd, "CliffExceedsVestingEnd");
+  });
+
+  it("fails when frequency exceeds vesting_duration", async () => {
+    const g = Keypair.generate();
+    const b = Keypair.generate();
+    svm.airdrop(g.publicKey, BigInt(10 * LAMPORTS_PER_SOL));
+    const mint = createMintAndMintTo(svm, g, g.publicKey, MINT_AMOUNT);
+    const gAta = getAssociatedTokenAddressSync(mint.publicKey, g.publicKey, false, TOKEN_PROGRAM_ID);
+    const [state] = deriveVestingState(g.publicKey, b.publicKey);
+    const vault = getAssociatedTokenAddressSync(mint.publicKey, state, true, TOKEN_PROGRAM_ID);
+    const prog = buildProgram(g);
+
+    // frequency (120 days) > vesting_duration (90 days) → should fail
+    const ix = await prog.methods
+      .initialize(cliffDuration, new BN(NINETY_DAYS), totalAmount, new BN(ONE_DAY * 120), UNIT)
+      .accounts({ grantor: g.publicKey, beneficiary: b.publicKey, tokenMint: mint.publicKey, grantorAta: gAta, vestingState: state, vestingVault: vault, associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID, tokenProgram: TOKEN_PROGRAM_ID, systemProgram: SystemProgram.programId })
+      .instruction();
+
+    const tx = new Transaction();
+    tx.recentBlockhash = svm.latestBlockhash();
+    tx.feePayer = g.publicKey;
+    tx.add(ix);
+    tx.sign(g);
+    assertCustomError(svm.sendTransaction(tx), ERR.FrequencyExceedsVestingDuration, "FrequencyExceedsVestingDuration");
   });
 
   it("fails when grantor and beneficiary are the same", async () => {
@@ -328,7 +393,7 @@ describe("capstone_vesting_vault – initialize", () => {
     const prog = buildProgram(g);
 
     const ix = await prog.methods
-      .initialize(startTime, cliffTime, vestingDuration, totalAmount.div(new BN(10 ** TOKEN_DECIMALS)), frequency)
+      .initialize(cliffDuration, vestingDuration, totalAmount, frequency, UNIT)
       .accounts({ grantor: g.publicKey, beneficiary: g.publicKey, tokenMint: mint.publicKey, grantorAta: gAta, vestingState: state, vestingVault: vault, associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID, tokenProgram: TOKEN_PROGRAM_ID, systemProgram: SystemProgram.programId })
       .instruction();
 
@@ -352,11 +417,23 @@ describe("capstone_vesting_vault – initialize", () => {
 //   it back — so "simulate 30 days later" is just one function call.
 //   This makes time-dependent tests instant (no real waiting needed).
 //
-// VESTING MATH (from withdraw.rs):
-//   tokens_per_period  = total_amount * frequency / vesting_duration
-//   completed_periods  = (now - cliff_time) / frequency   [integer division]
-//   vested_till_now    = min(completed_periods * tokens_per_period, total_amount)
-//   available          = vested_till_now - total_withdrawn
+// UPDATED VESTING MATH (from withdraw.rs + state.rs):
+//   The contract now computes start_time from Clock::get() at init time.
+//   cliff_time    = start_time + cliff_duration * multiplier
+//   vesting_end   = start_time + vesting_duration * multiplier
+//   frequency     = frequency * multiplier
+//
+//   In the VestingState::vested_amount():
+//   time_elapsed      = now - cliff_time
+//   completed_periods = time_elapsed / frequency
+//   total_duration    = vesting_end - start_time
+//   total_periods     = total_duration / frequency
+//   tokens_per_period = total_amount / total_periods
+//   vested            = min(completed_periods * tokens_per_period, total_amount)
+//   available         = vested - total_withdrawn
+//
+// NOTE: Using TimeUnit::Sec so multiplier = 1 and durations are raw seconds.
+//       The contract auto-scales total_amount and withdraw amount by 10^decimals.
 // =============================================================================
 
 describe("capstone_vesting_vault – withdraw", () => {
@@ -374,20 +451,24 @@ describe("capstone_vesting_vault – withdraw", () => {
   // Fixed base time — makes all offset arithmetic deterministic and readable
   const BASE_TIME = 1_000_000;
 
-  // Schedule: cliff = BASE + 30d, vesting for 90d in 3 × 30d periods
-  const startTime    = new BN(BASE_TIME);
-  const cliffTime    = new BN(BASE_TIME + THIRTY_DAYS);
-  const vestDuration = new BN(NINETY_DAYS);
-  const frequency    = new BN(THIRTY_DAYS);
+  // Using Sec unit so durations are raw seconds
+  const UNIT = { sec: {} };
+
+  // Schedule: cliff = 30d, vesting for 90d in 3 × 30d periods
+  const cliffDuration  = new BN(THIRTY_DAYS);
+  const vestDuration   = new BN(NINETY_DAYS);
+  const frequency      = new BN(THIRTY_DAYS);
   // 900 divides cleanly into 3 periods of 300 each
+  // Contract stores total_amount = 900 * 10^6 internally
   const totalAmount     = new BN(900);
   const TOKENS_PER_PERIOD = 300;
   const DECIMAL_MULTIPLIER = 10 ** TOKEN_DECIMALS;
 
-  /** Helper: sends a withdraw instruction signed by the beneficiary */
+  /** Helper: sends a withdraw instruction signed by the beneficiary.
+   *  `amount` is in raw tokens — contract auto-scales by 10^decimals. */
   async function callWithdraw(amount: number): Promise<any> {
     const ix = await beneficiaryProgram.methods
-      .withdraw(new BN(amount * DECIMAL_MULTIPLIER))
+      .withdraw(new BN(amount))
       .accounts({
         beneficiary: beneficiary.publicKey,
         grantor: grantor.publicKey,
@@ -416,7 +497,7 @@ describe("capstone_vesting_vault – withdraw", () => {
     svm = new LiteSVM().withDefaultPrograms();
     svm.addProgramFromFile(PROGRAM_ID, "target/deploy/capstone_vesting_vault.so");
 
-    // Pin the clock to BASE_TIME so all timestamps are predictable
+    // Pin the clock to BASE_TIME so start_time = BASE_TIME when initialize runs
     setClock(svm, BASE_TIME);
 
     grantor     = Keypair.generate();
@@ -424,6 +505,7 @@ describe("capstone_vesting_vault – withdraw", () => {
     svm.airdrop(grantor.publicKey,     BigInt(10 * LAMPORTS_PER_SOL));
     svm.airdrop(beneficiary.publicKey, BigInt(10 * LAMPORTS_PER_SOL));
 
+    // Mint enough raw tokens: 900 * 10^6 * 2 (extra headroom)
     mintKp = createMintAndMintTo(svm, grantor, grantor.publicKey, BigInt(totalAmount.toNumber() * DECIMAL_MULTIPLIER * 2));
     grantorAta = getAssociatedTokenAddressSync(mintKp.publicKey, grantor.publicKey, false, TOKEN_PROGRAM_ID);
 
@@ -436,8 +518,12 @@ describe("capstone_vesting_vault – withdraw", () => {
     beneficiaryProgram = buildProgram(beneficiary);
 
     // Initialize the vesting vault at BASE_TIME
+    // Contract will set: start_time = BASE_TIME (from Clock)
+    //   cliff_time    = BASE_TIME + THIRTY_DAYS (cliff_duration * 1 for Sec unit)
+    //   vesting_end   = BASE_TIME + NINETY_DAYS
+    //   total_amount  = 900 * 10^6 (scaled internally)
     const initIx = await program.methods
-      .initialize(startTime, cliffTime, vestDuration, totalAmount, frequency)
+      .initialize(cliffDuration, vestDuration, totalAmount, frequency, UNIT)
       .accounts({
         grantor: grantor.publicKey,
         beneficiary: beneficiary.publicKey,
@@ -465,7 +551,7 @@ describe("capstone_vesting_vault – withdraw", () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   it("❌ fails with CliffNotPassed when called 1 second before cliff", async () => {
-    // Cliff is at BASE_TIME + THIRTY_DAYS; set clock to 1 second before
+    // cliff_time = BASE_TIME + THIRTY_DAYS. Set clock to 1 second before.
     setClock(svm, BASE_TIME + THIRTY_DAYS - 1);
     const result = await callWithdraw(1);
     assertCustomError(result, ERR.CliffNotPassed, "CliffNotPassed");
@@ -479,7 +565,7 @@ describe("capstone_vesting_vault – withdraw", () => {
   });
 
   it("❌ fails with InsufficientBalance when requesting more than vested (1 period in)", async () => {
-    // After 1 period: 300M is vested. Requesting 300M+1 should fail.
+    // After 1 period past cliff: 300 tokens vested. Requesting 301 should fail.
     setClock(svm, BASE_TIME + THIRTY_DAYS + THIRTY_DAYS);
     const result = await callWithdraw(TOKENS_PER_PERIOD + 1);
     assertCustomError(result, ERR.InsufficientBalance, "over-withdraw after 1 period");
@@ -492,7 +578,7 @@ describe("capstone_vesting_vault – withdraw", () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   it("✅ withdraws 1 period's worth of tokens after period 1 elapses", async () => {
-    // clock: cliff + 1 period → 1 completed period → 300M vested
+    // clock: cliff + 1 period → 1 completed period → 300 vested (300M scaled)
     setClock(svm, BASE_TIME + THIRTY_DAYS + THIRTY_DAYS);
 
     const result = await callWithdraw(TOKENS_PER_PERIOD);
@@ -503,34 +589,34 @@ describe("capstone_vesting_vault – withdraw", () => {
   });
 
   it("❌ fails with InsufficientBalance right after draining period 1", async () => {
-    // Same clock as above — already withdrew all available 300M, so available = 0
+    // Same clock as above — already withdrew all available 300, so available = 0
     setClock(svm, BASE_TIME + THIRTY_DAYS + THIRTY_DAYS);
     const result = await callWithdraw(1);
     assertCustomError(result, ERR.InsufficientBalance, "nothing left after period 1 drained");
   });
 
   it("✅ partial withdraw: withdraws half of the newly vested tokens at period 2", async () => {
-    // clock: cliff + 2 periods → 2 periods vested = 600M total, 300M already withdrawn → 300M available
+    // clock: cliff + 2 periods → 2 periods vested = 600 total, 300 already withdrawn → 300 available
     setClock(svm, BASE_TIME + THIRTY_DAYS + 2 * THIRTY_DAYS);
 
-    const partialAmount = TOKENS_PER_PERIOD / 2; // 150M
+    const partialAmount = TOKENS_PER_PERIOD / 2; // 150
     const result = await callWithdraw(partialAmount);
     assertSuccess(result, "partial withdraw period 2");
 
     const balance = getTokenBalance(svm, beneficiaryAta);
-    // Previously had 300M, now has 300M + 150M = 450M
+    // Previously had 300M, now has 300M + 150M = 450M (in scaled units)
     assert.strictEqual(balance, BigInt((TOKENS_PER_PERIOD + partialAmount) * DECIMAL_MULTIPLIER));
   });
 
   it("✅ withdraws the remaining tokens left from period 2", async () => {
-    // Still at period 2 clock. 150M was already withdrawn this period, 150M remains.
+    // Still at period 2 clock. 150 was already withdrawn this period, 150 remains.
     setClock(svm, BASE_TIME + THIRTY_DAYS + 2 * THIRTY_DAYS);
 
-    const remaining = TOKENS_PER_PERIOD / 2; // 150M remaining from period 2
+    const remaining = TOKENS_PER_PERIOD / 2; // 150 remaining from period 2
     const result = await callWithdraw(remaining);
     assertSuccess(result, "second partial withdraw period 2");
 
-    // Total: 300M (p1) + 150M + 150M (p2) = 600M = 2 full periods
+    // Total: 300 (p1) + 150 + 150 (p2) = 600 = 2 full periods (in scaled units)
     const balance = getTokenBalance(svm, beneficiaryAta);
     assert.strictEqual(balance, BigInt(2 * TOKENS_PER_PERIOD * DECIMAL_MULTIPLIER));
   });
@@ -542,14 +628,14 @@ describe("capstone_vesting_vault – withdraw", () => {
   });
 
   it("✅ withdraws the final period's tokens after vesting schedule ends", async () => {
-    // Past the full 90-day vesting: all 900M vested, 600M withdrawn → 300M left
+    // Past the full 90-day vesting: all 900 vested, 600 withdrawn → 300 left
     setClock(svm, BASE_TIME + THIRTY_DAYS + NINETY_DAYS + 1);
 
-    const finalAmount = TOKENS_PER_PERIOD; // last 300M
+    const finalAmount = TOKENS_PER_PERIOD; // last 300
     const result = await callWithdraw(finalAmount);
     assertSuccess(result, "final withdraw");
 
-    // Beneficiary should now hold the entire totalAmount
+    // Beneficiary should now hold the entire totalAmount (in scaled units)
     const balance = getTokenBalance(svm, beneficiaryAta);
     assert.strictEqual(balance, BigInt(totalAmount.toNumber() * DECIMAL_MULTIPLIER), "all tokens received");
 
@@ -559,7 +645,7 @@ describe("capstone_vesting_vault – withdraw", () => {
   });
 
   it("❌ fails with InsufficientBalance when trying to over-withdraw after full vest", async () => {
-    // All 900M is already withdrawn — nothing left, even though vesting is complete
+    // All 900 is already withdrawn — nothing left, even though vesting is complete
     setClock(svm, BASE_TIME + THIRTY_DAYS + NINETY_DAYS + 1);
     const result = await callWithdraw(1);
     assertCustomError(result, ERR.InsufficientBalance, "nothing left after full withdrawal");
@@ -588,12 +674,13 @@ describe("capstone_vesting_vault – revoke", () => {
   let program: Program;
 
   const BASE_TIME = 1_000_000;
+  const UNIT = { sec: {} };
+
   // Standard setup: 30d cliff, 90d duration (3 periods), 900 tokens total
-  const startTime = new BN(BASE_TIME);
-  const cliffTime = new BN(BASE_TIME + THIRTY_DAYS);
-  const vestDuration = new BN(NINETY_DAYS);
-  const frequency = new BN(THIRTY_DAYS);
-  const totalAmount = new BN(900);
+  const cliffDuration = new BN(THIRTY_DAYS);
+  const vestDuration  = new BN(NINETY_DAYS);
+  const frequency     = new BN(THIRTY_DAYS);
+  const totalAmount   = new BN(900);
   const TOKENS_PER_PERIOD = 300;
   const DECIMAL_MULTIPLIER = 10 ** TOKEN_DECIMALS;
 
@@ -616,7 +703,7 @@ describe("capstone_vesting_vault – revoke", () => {
 
     // Initialize vault
     const ix = await program.methods
-      .initialize(startTime, cliffTime, vestDuration, totalAmount, frequency)
+      .initialize(cliffDuration, vestDuration, totalAmount, frequency, UNIT)
       .accounts({
         grantor: grantor.publicKey,
         beneficiary: beneficiary.publicKey,
@@ -640,8 +727,8 @@ describe("capstone_vesting_vault – revoke", () => {
   });
 
   it("✅ revokes halfway through vesting (1 period elapsed)", async () => {
-    // 1. Advance time to 1 period elapsed (30d cliff + 30d period 1 + 1s)
-    // Vested should be 300. Unvested 600. Inside vault: *10^6
+    // 1. Advance time to 1 period elapsed (cliff + 1 period + 1s)
+    // Vested should be 300. Unvested 600. Inside vault: 900 * 10^6
     setClock(svm, BASE_TIME + THIRTY_DAYS + THIRTY_DAYS + 1);    
     
     // Check initial vault balance = 900 * 10^6
@@ -674,12 +761,6 @@ describe("capstone_vesting_vault – revoke", () => {
     assertSuccess(result, "revoke");
 
     // 3. Verify balances
-    // Grantor should have received unvested amount (600M) back.
-    // Originally minted 2000M, initialized 900M -> 1100M left.
-    // Now receiving 600M back -> 1700M total
-    const grantorBalance = getTokenBalance(svm, grantorAta);
-    // Rough check: it increased by 600M from before revoke
-    // Let's check specifically vault balance.
     // Vault should have 300M remaining (the vested portion).
     const vaultBalance = getTokenBalance(svm, vestingVault);
     assert.strictEqual(vaultBalance, BigInt(TOKENS_PER_PERIOD * DECIMAL_MULTIPLIER), "Vault should keep vested tokens");
@@ -687,11 +768,11 @@ describe("capstone_vesting_vault – revoke", () => {
     // 4. Verify state is inactive
     const state = svm.getAccount(vestingStatePda);
     const data = Buffer.from(state!.data);
-    // is_active offset logic again: 8 + 32+32+8+8+8+8+8+32 = 144
+    // is_active offset: 8 (disc) + 32 + 32 + 8 + 8 + 8 + 8 + 8 + 32 = 144
     assert.strictEqual(data[144], 0, "is_active should be 0 (false)");
 
-    // 5. Verify total_amount updated to vested amount? 
-    // total_amount is at offset 8+32+32+8+8+8 = 96. u64 LE.
+    // 5. Verify total_amount updated to vested amount
+    // total_amount offset: 8 + 32 + 32 + 8 + 8 + 8 = 96. u64 LE.
     const newTotal = data.readBigUInt64LE(96);
     assert.strictEqual(newTotal, BigInt(TOKENS_PER_PERIOD * DECIMAL_MULTIPLIER), "total_amount should be updated to vested amount");
   });
@@ -699,14 +780,14 @@ describe("capstone_vesting_vault – revoke", () => {
   it("✅ allows beneficiary to withdraw the remaining vested tokens after revoke", async () => {
     // Current time is still (cliff + period 1 + 1s).
     // Vault has 300M. Total amount is 300M. Withdrawn 0.
-    // Beneficiary requests full 300M.
+    // Beneficiary requests full 300 (raw, contract scales by decimals).
     
     const bProg = buildProgram(beneficiary);
     // init_if_needed creates ATA
     const beneficiaryAta = getAssociatedTokenAddressSync(mintKp.publicKey, beneficiary.publicKey, false, TOKEN_PROGRAM_ID);
     
     const ix = await bProg.methods
-      .withdraw(new BN(TOKENS_PER_PERIOD * DECIMAL_MULTIPLIER))
+      .withdraw(new BN(TOKENS_PER_PERIOD))
       .accounts({
         beneficiary: beneficiary.publicKey,
         grantor: grantor.publicKey,

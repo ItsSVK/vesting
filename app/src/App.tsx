@@ -39,9 +39,12 @@ function App() {
         
         let claimable = new BN(0);
         if (acc.isActive && now.gte(acc.cliffTime)) {
-            const periodsPassed = now.sub(acc.cliffTime).div(acc.frequency);
-            const tokensPerPeriod = acc.totalAmount.mul(acc.frequency).div(acc.vestingDuration);
-            let vestedTillNow = periodsPassed.mul(tokensPerPeriod);
+            const timeElapsed = now.sub(acc.cliffTime);
+            const completedPeriods = timeElapsed.div(acc.frequency);
+            const totalDuration = acc.vestingEndTime.sub(acc.startTime);
+            const totalPeriods = totalDuration.div(acc.frequency);
+            const tokensPerPeriod = acc.totalAmount.div(totalPeriods);
+            let vestedTillNow = completedPeriods.mul(tokensPerPeriod);
             if (vestedTillNow.gt(acc.totalAmount)) vestedTillNow = acc.totalAmount;
             claimable = vestedTillNow.sub(acc.totalWithdrawn);
         }

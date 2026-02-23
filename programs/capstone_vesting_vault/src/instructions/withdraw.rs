@@ -14,7 +14,9 @@ pub struct Withdraw<'info> {
     #[account(
         mut,
         seeds = [b"vesting_state", grantor.key().as_ref(), beneficiary.key().as_ref()],
-        bump
+        bump = vesting_state.bump,
+        has_one = grantor,
+        has_one = beneficiary
     )]
     pub vesting_state: Account<'info, VestingState>,
     #[account(
@@ -44,6 +46,7 @@ pub struct Withdraw<'info> {
 
 pub fn handler(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
     let now = Clock::get()?.unix_timestamp as u64;
+    let amount = amount * 10u64.pow(ctx.accounts.token_mint.decimals as u32);
 
     let state = &ctx.accounts.vesting_state;
 
@@ -59,7 +62,7 @@ pub fn handler(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
         state.total_amount
     };
 
-    let available_to_withdraw = vested_amount.checked_sub(state.total_withdrawn).unwrap();
+    let available_to_withdraw = vested_amount.saturating_sub(state.total_withdrawn);
 
     require_gte!(
         available_to_withdraw,
@@ -72,7 +75,7 @@ pub fn handler(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
         b"vesting_state".as_ref(),
         ctx.accounts.grantor.key.as_ref(),
         ctx.accounts.beneficiary.key.as_ref(),
-        &[ctx.bumps.vesting_state],
+        &[ctx.accounts.vesting_state.bump],
     ];
 
     transfer_checked(

@@ -11,7 +11,7 @@ pub use error::*;
 pub use instructions::*;
 pub use state::*;
 
-declare_id!("F4sps74oJaGCmos1mZNUsa98nb4zrp55gmQEtY4FPHt6");
+declare_id!("HZjAbbJD1oNqesqMoCLpQK1CEATEnV8G1NFG9eQ1wtNH");
 
 #[program]
 pub mod capstone_vesting_vault {
@@ -19,19 +19,19 @@ pub mod capstone_vesting_vault {
 
     pub fn initialize(
         ctx: Context<Initialize>,
-        start_time: u64,
-        cliff_time: u64,
+        cliff_duration: u64,
         vesting_duration: u64,
         total_amount: u64,
         frequency: u64,
+        unit: TimeUnit,
     ) -> Result<()> {
         initialize::handler(
             ctx,
-            start_time,
-            cliff_time,
+            cliff_duration,
             vesting_duration,
             total_amount,
             frequency,
+            unit,
         )
     }
 

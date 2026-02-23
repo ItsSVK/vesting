@@ -4,7 +4,7 @@ use anchor_spl::{
     token_interface::{close_account, CloseAccount, Mint, TokenAccount, TokenInterface},
 };
 
-use crate::VestingState;
+use crate::{VestingError, VestingState};
 
 #[derive(Accounts)]
 pub struct Close<'info> {
@@ -37,11 +37,13 @@ pub struct Close<'info> {
 }
 
 pub fn handler(ctx: Context<Close>) -> Result<()> {
-    // require_eq!(
-    //     ctx.accounts.vesting_vault.get_lamports(),
-    //     0,
-    //     VestingError::NotZero
-    // );
+    // Prevent closing while there are still tokens in the vault.
+    // Grantor must wait until beneficiary has fully withdrawn (or call revoke first).
+    require_eq!(
+        ctx.accounts.vesting_vault.amount,
+        0u64,
+        VestingError::NotZero
+    );
 
     // Determine seeds for signing
     let signer_seeds = [

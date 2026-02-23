@@ -21,4 +21,8 @@ pub enum VestingError {
     VestingInactive,
     #[msg("Frequency cant be zero")]
     ZeroFrequency,
+    #[msg("Cliff time cant be zero")]
+    ZeroCliffTime,
+    #[msg("Frequency exceeds vesting duration")]
+    FrequencyExceedsVestingDuration,
 }

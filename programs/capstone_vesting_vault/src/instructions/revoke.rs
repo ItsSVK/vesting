@@ -48,12 +48,22 @@ pub struct Revoke<'info> {
 pub fn handler(ctx: Context<Revoke>) -> Result<()> {
     let now = Clock::get()?.unix_timestamp as u64;
 
-    // Calculate how much should have vested
-    let vested_amount = ctx.accounts.vesting_state.vested_amount(now).unwrap();
+    let state = &ctx.accounts.vesting_state;
 
-    // Calculate how much is unvested that should be returned to grantor
-    let total = ctx.accounts.vesting_state.total_amount;
-    let unvested_amount = total.checked_sub(vested_amount).unwrap();
+    // How much has vested up to this moment
+    let vested_amount = state.vested_amount(now).unwrap_or(0);
+
+    // How much the beneficiary has already withdrawn
+    let already_withdrawn = state.total_withdrawn;
+
+    // Remaining vested-but-not-yet-withdrawn tokens stay in vault for beneficiary
+    let claimable_by_beneficiary = vested_amount.saturating_sub(already_withdrawn);
+
+    // Actual tokens sitting in the vault right now
+    let vault_balance = ctx.accounts.vesting_vault.amount;
+
+    // Unvested = vault balance minus what's still owed to the beneficiary
+    let unvested_amount = vault_balance.saturating_sub(claimable_by_beneficiary);
 
     // If there's unvested amount, transfer it back to grantor
     if unvested_amount > 0 {
@@ -80,7 +90,8 @@ pub fn handler(ctx: Context<Revoke>) -> Result<()> {
         )?;
     }
 
-    // Update state to reflect revocation
+    // Update state to reflect revocation.
+    // total_amount is now the ceiling the beneficiary can still claim.
     ctx.accounts.vesting_state.total_amount = vested_amount;
     ctx.accounts.vesting_state.is_active = false;
 

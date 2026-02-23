@@ -7,7 +7,7 @@ pub struct VestingState {
     pub beneficiary: Pubkey,
     pub start_time: u64,
     pub cliff_time: u64,
-    pub vesting_duration: u64,
+    pub vesting_end_time: u64,
     pub total_amount: u64,
     pub total_withdrawn: u64,
     pub token_mint: Pubkey,
@@ -25,10 +25,12 @@ impl VestingState {
         let time_elapsed = current_time.checked_sub(self.cliff_time)?;
         let completed_periods = time_elapsed.checked_div(self.frequency)?;
 
-        let tokens_per_period = self
-            .total_amount
-            .checked_mul(self.frequency)?
-            .checked_div(self.vesting_duration)?;
+        // Total number of periods in the full vesting schedule
+        let total_duration = self.vesting_end_time.checked_sub(self.start_time)?;
+        let total_periods = total_duration.checked_div(self.frequency)?;
+
+        // Tokens unlocked per period
+        let tokens_per_period = self.total_amount.checked_div(total_periods)?;
 
         let vested = completed_periods.checked_mul(tokens_per_period)?;
         Some(vested.min(self.total_amount))
