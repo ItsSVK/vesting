@@ -1,3 +1,4 @@
+import { Analytics } from '@vercel/analytics/react';
 import { Header } from './components/Header';
 import { ActionBar } from './components/dashboard/ActionBar';
 import { BackgroundDecor } from './components/dashboard/BackgroundDecor';
@@ -55,6 +56,7 @@ function App() {
   return (
     <DashboardProvider>
       <DashboardLayout />
+      <Analytics />
     </DashboardProvider>
   );
 }
