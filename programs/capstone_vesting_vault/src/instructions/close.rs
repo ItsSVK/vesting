@@ -14,7 +14,12 @@ pub struct Close<'info> {
     #[account(
         mut,
         close = grantor,
-        seeds = [b"vesting_state", grantor.key().as_ref(), beneficiary.key().as_ref()],
+        seeds = [
+            b"vesting_state",
+            grantor.key().as_ref(),
+            beneficiary.key().as_ref(),
+            token_mint.key().as_ref()
+        ],
         bump = vesting_state.bump,
         has_one = grantor
     )]
@@ -46,10 +51,12 @@ pub fn handler(ctx: Context<Close>) -> Result<()> {
     );
 
     // Determine seeds for signing
+    let token_mint_key = ctx.accounts.token_mint.key();
     let signer_seeds = [
         b"vesting_state".as_ref(),
         ctx.accounts.grantor.key.as_ref(),
         ctx.accounts.beneficiary.key.as_ref(),
+        token_mint_key.as_ref(),
         &[ctx.accounts.vesting_state.bump],
     ];
 

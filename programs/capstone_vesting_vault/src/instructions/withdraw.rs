@@ -13,7 +13,12 @@ pub struct Withdraw<'info> {
     pub grantor: SystemAccount<'info>,
     #[account(
         mut,
-        seeds = [b"vesting_state", grantor.key().as_ref(), beneficiary.key().as_ref()],
+        seeds = [
+            b"vesting_state",
+            grantor.key().as_ref(),
+            beneficiary.key().as_ref(),
+            token_mint.key().as_ref()
+        ],
         bump = vesting_state.bump,
         has_one = grantor,
         has_one = beneficiary
@@ -71,10 +76,12 @@ pub fn handler(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
     );
 
     // Cpi Transfer
+    let token_mint_key = ctx.accounts.token_mint.key();
     let signer_seeds = [
         b"vesting_state".as_ref(),
         ctx.accounts.grantor.key.as_ref(),
         ctx.accounts.beneficiary.key.as_ref(),
+        token_mint_key.as_ref(),
         &[ctx.accounts.vesting_state.bump],
     ];
 

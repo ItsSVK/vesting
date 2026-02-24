@@ -112,9 +112,18 @@ function createMintAndMintTo(
 }
 
 /** Derives the vesting_state PDA */
-function deriveVestingState(grantor: PublicKey, beneficiary: PublicKey): [PublicKey, number] {
+function deriveVestingState(
+  grantor: PublicKey,
+  beneficiary: PublicKey,
+  tokenMint: PublicKey
+): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("vesting_state"), grantor.toBuffer(), beneficiary.toBuffer()],
+    [
+      Buffer.from("vesting_state"),
+      grantor.toBuffer(),
+      beneficiary.toBuffer(),
+      tokenMint.toBuffer(),
+    ],
     PROGRAM_ID
   );
 }
@@ -255,7 +264,7 @@ describe("capstone_vesting_vault – initialize", () => {
     mintKp = createMintAndMintTo(svm, grantor, grantor.publicKey, MINT_AMOUNT);
     grantorAta = getAssociatedTokenAddressSync(mintKp.publicKey, grantor.publicKey, false, TOKEN_PROGRAM_ID);
 
-    [vestingStatePda] = deriveVestingState(grantor.publicKey, beneficiary.publicKey);
+    [vestingStatePda] = deriveVestingState(grantor.publicKey, beneficiary.publicKey, mintKp.publicKey);
     vestingVault = getAssociatedTokenAddressSync(mintKp.publicKey, vestingStatePda, true, TOKEN_PROGRAM_ID);
 
     program = buildProgram(grantor);
@@ -295,7 +304,7 @@ describe("capstone_vesting_vault – initialize", () => {
     svm.airdrop(g.publicKey, BigInt(10 * LAMPORTS_PER_SOL));
     const mint = createMintAndMintTo(svm, g, g.publicKey, MINT_AMOUNT);
     const gAta = getAssociatedTokenAddressSync(mint.publicKey, g.publicKey, false, TOKEN_PROGRAM_ID);
-    const [state] = deriveVestingState(g.publicKey, b.publicKey);
+    const [state] = deriveVestingState(g.publicKey, b.publicKey, mint.publicKey);
     const vault = getAssociatedTokenAddressSync(mint.publicKey, state, true, TOKEN_PROGRAM_ID);
     const prog = buildProgram(g);
 
@@ -318,7 +327,7 @@ describe("capstone_vesting_vault – initialize", () => {
     svm.airdrop(g.publicKey, BigInt(10 * LAMPORTS_PER_SOL));
     const mint = createMintAndMintTo(svm, g, g.publicKey, MINT_AMOUNT);
     const gAta = getAssociatedTokenAddressSync(mint.publicKey, g.publicKey, false, TOKEN_PROGRAM_ID);
-    const [state] = deriveVestingState(g.publicKey, b.publicKey);
+    const [state] = deriveVestingState(g.publicKey, b.publicKey, mint.publicKey);
     const vault = getAssociatedTokenAddressSync(mint.publicKey, state, true, TOKEN_PROGRAM_ID);
     const prog = buildProgram(g);
 
@@ -341,7 +350,7 @@ describe("capstone_vesting_vault – initialize", () => {
     svm.airdrop(g.publicKey, BigInt(10 * LAMPORTS_PER_SOL));
     const mint = createMintAndMintTo(svm, g, g.publicKey, MINT_AMOUNT);
     const gAta = getAssociatedTokenAddressSync(mint.publicKey, g.publicKey, false, TOKEN_PROGRAM_ID);
-    const [state] = deriveVestingState(g.publicKey, b.publicKey);
+    const [state] = deriveVestingState(g.publicKey, b.publicKey, mint.publicKey);
     const vault = getAssociatedTokenAddressSync(mint.publicKey, state, true, TOKEN_PROGRAM_ID);
     const prog = buildProgram(g);
 
@@ -365,7 +374,7 @@ describe("capstone_vesting_vault – initialize", () => {
     svm.airdrop(g.publicKey, BigInt(10 * LAMPORTS_PER_SOL));
     const mint = createMintAndMintTo(svm, g, g.publicKey, MINT_AMOUNT);
     const gAta = getAssociatedTokenAddressSync(mint.publicKey, g.publicKey, false, TOKEN_PROGRAM_ID);
-    const [state] = deriveVestingState(g.publicKey, b.publicKey);
+    const [state] = deriveVestingState(g.publicKey, b.publicKey, mint.publicKey);
     const vault = getAssociatedTokenAddressSync(mint.publicKey, state, true, TOKEN_PROGRAM_ID);
     const prog = buildProgram(g);
 
@@ -388,7 +397,7 @@ describe("capstone_vesting_vault – initialize", () => {
     svm.airdrop(g.publicKey, BigInt(10 * LAMPORTS_PER_SOL));
     const mint = createMintAndMintTo(svm, g, g.publicKey, MINT_AMOUNT);
     const gAta = getAssociatedTokenAddressSync(mint.publicKey, g.publicKey, false, TOKEN_PROGRAM_ID);
-    const [state] = deriveVestingState(g.publicKey, g.publicKey);
+    const [state] = deriveVestingState(g.publicKey, g.publicKey, mint.publicKey);
     const vault = getAssociatedTokenAddressSync(mint.publicKey, state, true, TOKEN_PROGRAM_ID);
     const prog = buildProgram(g);
 
@@ -509,7 +518,7 @@ describe("capstone_vesting_vault – withdraw", () => {
     mintKp = createMintAndMintTo(svm, grantor, grantor.publicKey, BigInt(totalAmount.toNumber() * DECIMAL_MULTIPLIER * 2));
     grantorAta = getAssociatedTokenAddressSync(mintKp.publicKey, grantor.publicKey, false, TOKEN_PROGRAM_ID);
 
-    [vestingStatePda] = deriveVestingState(grantor.publicKey, beneficiary.publicKey);
+    [vestingStatePda] = deriveVestingState(grantor.publicKey, beneficiary.publicKey, mintKp.publicKey);
     vestingVault = getAssociatedTokenAddressSync(mintKp.publicKey, vestingStatePda, true, TOKEN_PROGRAM_ID);
     // init_if_needed creates this on first withdraw; derive address now for balance checks
     beneficiaryAta = getAssociatedTokenAddressSync(mintKp.publicKey, beneficiary.publicKey, false, TOKEN_PROGRAM_ID);
@@ -696,7 +705,7 @@ describe("capstone_vesting_vault – revoke", () => {
 
     mintKp = createMintAndMintTo(svm, grantor, grantor.publicKey, BigInt(2000_000_000));
     grantorAta = getAssociatedTokenAddressSync(mintKp.publicKey, grantor.publicKey, false, TOKEN_PROGRAM_ID);
-    [vestingStatePda] = deriveVestingState(grantor.publicKey, beneficiary.publicKey);
+    [vestingStatePda] = deriveVestingState(grantor.publicKey, beneficiary.publicKey, mintKp.publicKey);
     vestingVault = getAssociatedTokenAddressSync(mintKp.publicKey, vestingStatePda, true, TOKEN_PROGRAM_ID);
     beneficiaryAta = getAssociatedTokenAddressSync(mintKp.publicKey, beneficiary.publicKey, false, TOKEN_PROGRAM_ID);
     program = buildProgram(grantor);

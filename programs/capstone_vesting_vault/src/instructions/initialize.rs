@@ -39,7 +39,12 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = grantor,
-        seeds = [b"vesting_state", grantor.key().as_ref(), beneficiary.key().as_ref()],
+        seeds = [
+            b"vesting_state",
+            grantor.key().as_ref(),
+            beneficiary.key().as_ref(),
+            token_mint.key().as_ref()
+        ],
         space = VestingState::DISCRIMINATOR.len() + VestingState::INIT_SPACE,
         bump
     )]
@@ -68,6 +73,7 @@ pub fn handler(
     unit: TimeUnit,
 ) -> Result<()> {
     let start_time = Clock::get()?.unix_timestamp as u64;
+
     require_gt!(total_amount, 0, VestingError::ZeroAmount);
 
     require_gt!(frequency, 0, VestingError::ZeroFrequency);

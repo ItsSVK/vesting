@@ -13,7 +13,12 @@ pub struct Revoke<'info> {
     pub beneficiary: SystemAccount<'info>,
     #[account(
         mut,
-        seeds = [b"vesting_state", grantor.key().as_ref(), beneficiary.key().as_ref()],
+        seeds = [
+            b"vesting_state",
+            grantor.key().as_ref(),
+            beneficiary.key().as_ref(),
+            token_mint.key().as_ref()
+        ],
         bump = vesting_state.bump,
         has_one = grantor,
         constraint = vesting_state.is_active == true @ VestingError::VestingInactive
@@ -67,10 +72,12 @@ pub fn handler(ctx: Context<Revoke>) -> Result<()> {
 
     // If there's unvested amount, transfer it back to grantor
     if unvested_amount > 0 {
+        let token_mint_key = ctx.accounts.token_mint.key();
         let signer_seeds = [
             b"vesting_state".as_ref(),
             ctx.accounts.grantor.key.as_ref(),
             ctx.accounts.beneficiary.key.as_ref(),
+            token_mint_key.as_ref(),
             &[ctx.accounts.vesting_state.bump],
         ];
 

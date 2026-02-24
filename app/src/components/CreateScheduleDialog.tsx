@@ -12,6 +12,8 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useVestingSchedules } from '@/hooks/useVestingSchedules';
+import { parseErrorMessage } from '@/dashboard/utils';
 
 const formSchema = z.object({
   beneficiary: z.string().refine((val) => {
@@ -34,6 +36,7 @@ export function CreateScheduleDialog() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { program, wallet } = useWorkspace();
+  const { data: existingSchedules = [], refetch } = useVestingSchedules();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -66,6 +69,29 @@ export function CreateScheduleDialog() {
     try {
         const beneficiaryPubkey = new PublicKey(values.beneficiary);
         const tokenMintPubkey = new PublicKey(values.tokenMint);
+
+        const scheduleExists = existingSchedules.some((item: unknown) => {
+          const account = (item as {
+            account?: {
+              grantor: PublicKey;
+              beneficiary: PublicKey;
+              tokenMint: PublicKey;
+            };
+          }).account;
+          if (!account) return false;
+
+          return (
+            account.grantor.toString() === wallet.publicKey.toString() &&
+            account.beneficiary.toString() === beneficiaryPubkey.toString() &&
+            account.tokenMint.toString() === tokenMintPubkey.toString()
+          );
+        });
+        if (scheduleExists) {
+          toast.error("Schedule already exists", {
+            description: "A vesting schedule for this beneficiary and mint already exists for your wallet.",
+          });
+          return;
+        }
         
         // Contract now takes raw durations — it multiplies by the unit internally
         const cliffDuration = new BN(values.cliffDays);
@@ -76,7 +102,12 @@ export function CreateScheduleDialog() {
 
         // PDAs and ATAs
         const [vestingStatePda] = PublicKey.findProgramAddressSync(
-            [Buffer.from("vesting_state"), wallet.publicKey.toBuffer(), beneficiaryPubkey.toBuffer()],
+            [
+              Buffer.from("vesting_state"),
+              wallet.publicKey.toBuffer(),
+              beneficiaryPubkey.toBuffer(),
+              tokenMintPubkey.toBuffer(),
+            ],
             program.programId
         );
         const vestingVault = getAssociatedTokenAddressSync(tokenMintPubkey, vestingStatePda, true);
@@ -102,14 +133,16 @@ export function CreateScheduleDialog() {
         });
         setOpen(false);
         form.reset();
+        refetch();
 
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error(err);
         toast.error("Failed to create schedule", {
-            description: err.message || "Unknown error occurred"
+            description: parseErrorMessage(err),
         });
     } finally {
         setLoading(false);
+        refetch();
     }
   };
 

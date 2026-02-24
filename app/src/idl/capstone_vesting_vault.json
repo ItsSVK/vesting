@@ -61,6 +61,10 @@
               {
                 "kind": "account",
                 "path": "beneficiary"
+              },
+              {
+                "kind": "account",
+                "path": "token_mint"
               }
             ]
           }
@@ -250,6 +254,10 @@
               {
                 "kind": "account",
                 "path": "beneficiary"
+              },
+              {
+                "kind": "account",
+                "path": "token_mint"
               }
             ]
           }
@@ -404,6 +412,10 @@
               {
                 "kind": "account",
                 "path": "beneficiary"
+              },
+              {
+                "kind": "account",
+                "path": "token_mint"
               }
             ]
           }
@@ -596,6 +608,10 @@
               {
                 "kind": "account",
                 "path": "beneficiary"
+              },
+              {
+                "kind": "account",
+                "path": "token_mint"
               }
             ]
           }
@@ -814,6 +830,11 @@
       "code": 6012,
       "name": "FrequencyExceedsVestingDuration",
       "msg": "Frequency exceeds vesting duration"
+    },
+    {
+      "code": 6013,
+      "name": "VestingScheduleAlreadyExists",
+      "msg": "Vesting schedule already exists"
     }
   ],
   "types": [

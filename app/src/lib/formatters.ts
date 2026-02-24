@@ -5,7 +5,7 @@ export function formatTokenAmount(amount: BN, decimals: number = 6): string {
   const amtStr = amount.toString();
   
   // Pad with leading zeros if amount is very small
-  let paddedStr = amtStr.padStart(decimals + 1, '0');
+  const paddedStr = amtStr.padStart(decimals + 1, '0');
   
   // Insert decimal point
   const intPart = paddedStr.slice(0, -decimals);
@@ -23,9 +23,13 @@ export function formatTokenAmount(amount: BN, decimals: number = 6): string {
 
 export function formatDate(unixTimestamp: BN): string {
   const date = new Date(unixTimestamp.toNumber() * 1000);
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleString(undefined, {
     year: 'numeric',
     month: 'short',
-    day: 'numeric'
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZoneName: 'short',
   });
 }

@@ -25,4 +25,6 @@ pub enum VestingError {
     ZeroCliffTime,
     #[msg("Frequency exceeds vesting duration")]
     FrequencyExceedsVestingDuration,
+    #[msg("Vesting schedule already exists")]
+    VestingScheduleAlreadyExists,
 }

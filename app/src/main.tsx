@@ -15,7 +15,7 @@ createRoot(document.getElementById('root')!).render(
       <WalletContextProvider>
         <TooltipProvider>
           <App />
-          <Toaster />
+          <Toaster richColors />
         </TooltipProvider>
       </WalletContextProvider>
     </QueryClientProvider>
