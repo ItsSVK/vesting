@@ -3,6 +3,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { toast } from 'sonner';
+import { Info } from 'lucide-react';
 import { useWorkspace } from '../hooks/useWorkspace';
 import { BN } from '@coral-xyz/anchor';
 import { PublicKey, SystemProgram } from '@solana/web3.js';
@@ -147,7 +148,10 @@ export function CreateScheduleDialog() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      setOpen(isOpen);
+      if (!isOpen) form.reset();
+    }}>
       <DialogTrigger asChild>
         <Button className="w-full justify-start h-12" variant="outline">
           Create Vesting Schedule
@@ -180,11 +184,47 @@ export function CreateScheduleDialog() {
               name="tokenMint"
               render={({ field }) => (
                 <FormItem className="grid gap-1.5">
-                  <FormLabel>Token Mint Address</FormLabel>
+                  <FormLabel>Token Mint Address (Devnet)</FormLabel>
                   <FormControl>
                     <Input placeholder="SPL Token Mint" {...field} />
                   </FormControl>
                   <FormMessage className="text-xs" />
+                  <div className="mt-1 flex gap-2 ">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs flex items-center gap-2 flex-1"
+                      onClick={() => field.onChange("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU")}
+                    >
+                      <img 
+                        src="src/assets/USDC-icon_128x128.png" 
+                        alt="USDC" 
+                        className="w-4 h-4 rounded-full" 
+                      />
+                      USDC
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs flex items-center gap-2 flex-1"
+                      onClick={() => field.onChange("HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr")}
+                    >
+                      <img 
+                        src="src/assets/EURC-icon_128x128.png" 
+                        alt="EURC" 
+                        className="w-4 h-4 rounded-full" 
+                      />
+                      EURC
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground bg-muted/50 p-2 rounded-md">
+                    <Info className="w-4 h-4 shrink-0 text-primary" />
+                    <p>
+                      Need Devnet tokens? <a href="https://faucet.circle.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Get them from Circle Faucet</a>
+                    </p>
+                  </div>
                 </FormItem>
               )}
             />

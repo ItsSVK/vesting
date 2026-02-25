@@ -80,6 +80,11 @@ export function parseErrorMessage(error: unknown): string {
     return VESTING_ERROR_MESSAGES[errorCode];
   }
 
+  // Handle Token Program Error 0x1 (Insufficient Funds)
+  if (errorCode === 1 || String(error).includes('custom program error: 0x1')) {
+    return 'Insufficient token balance to fund this vesting schedule.';
+  }
+
   if (typeof anchorError.error?.errorMessage === 'string' && anchorError.error.errorMessage.length > 0) {
     return anchorError.error.errorMessage;
   }
@@ -87,6 +92,9 @@ export function parseErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message.length > 0) {
     if (error.message.includes('already in use')) {
       return 'A vesting schedule already exists for this grantor, beneficiary, and mint.';
+    }
+    if (error.message.includes('0x1')) {
+      return 'Insufficient token balance to fund this vesting schedule.';
     }
     if (error.message.includes('0x0')) {
       return 'Transaction failed due to an unknown program error.';
