@@ -50,36 +50,28 @@ export function ScheduleCard({
   const isClosingSchedule = processingActionKey === closeActionKey;
   const actionLocked = claimingAll || isClaimingSchedule || isRevokingSchedule || isClosingSchedule;
 
-  const formatDynamicRelativeTime = (unixTime: BN, type: 'start' | 'cliff' | 'end', isActive: boolean) => {
+  let statusMessage = '';
+  let statusColor = '';
 
-    if (!isActive) {
-      return 'Revoked';
-    }
-
-    const diffInSeconds = Math.floor(unixTime.toNumber() - nowUnix);
-    const isPast = diffInSeconds <= 0;
-    
-    if (isPast) {
-      if (type === 'start') return 'Started';
-      if (type === 'cliff') return 'Cliff passed';
-      if (type === 'end') return 'Ended';
-    }
-
-    const absDiff = Math.abs(diffInSeconds);
-
-    const days = Math.floor(absDiff / 86400);
-    const hours = Math.floor((absDiff % 86400) / 3600);
-    const minutes = Math.floor((absDiff % 3600) / 60);
-    const seconds = absDiff % 60;
-
-    let timeString = '';
-    if (days > 0) timeString += `${days}d `;
-    if (hours > 0 || days > 0) timeString += `${hours}h `;
-    if (minutes > 0 || hours > 0 || days > 0) timeString += `${minutes}m `;
-    timeString += `${seconds}s`;
-
-    return `in ${timeString}`;
-  };
+  if (schedule.isCompleted) {
+    statusMessage = 'Fully Withdrawn';
+    statusColor = 'bg-sky-50 text-sky-600 border-sky-100 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20';
+  } else if (!schedule.account.isActive) {
+    statusMessage = 'Schedule Revoked';
+    statusColor = 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20';
+  } else if (nowUnix >= schedule.account.vestingEndTime.toNumber()) {
+    statusMessage = 'Vesting Schedule Ended • Awaiting Final Withdrawal';
+    statusColor = 'bg-neutral-50 text-neutral-600 border-neutral-100 dark:bg-neutral-800/50 dark:text-neutral-400 dark:border-neutral-700/50';
+  } else if (nowUnix >= schedule.account.cliffTime.toNumber()) {
+    statusMessage = `Cliff Passed • Ends ${formatRelativeFromNow(schedule.account.vestingEndTime)}`;
+    statusColor = 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20';
+  } else if (nowUnix >= schedule.account.startTime.toNumber()) {
+    statusMessage = `Started • Cliff ${formatRelativeFromNow(schedule.account.cliffTime)}`;
+    statusColor = 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20';
+  } else {
+    statusMessage = `Starts ${formatRelativeFromNow(schedule.account.startTime)}`;
+    statusColor = 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20';
+  }
 
   return (
     <div className="group overflow-hidden rounded-2xl border-black/5 bg-white/80 shadow-sm transition-all duration-500 hover:-translate-y-0.5 hover:shadow-xl dark:border-white/10 dark:bg-white/3">
@@ -124,27 +116,18 @@ export function ScheduleCard({
                 <p className="text-muted-foreground">Start</p>
                 <div>
                   <p className="mt-1 font-medium">{formatDate(schedule.account.startTime)}</p>
-                  <p className={`mt-0.5 text-[10px] ${schedule.account.isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'} font-medium`}>
-                    {formatDynamicRelativeTime(schedule.account.startTime, 'start', schedule.account.isActive)}
-                  </p>
                 </div>
               </div>
               <div className="rounded-lg bg-black/3 p-2.5 dark:bg-white/3 flex flex-col justify-between">
                 <p className="text-muted-foreground">Cliff</p>
                 <div>
                   <p className="mt-1 font-medium">{formatDate(schedule.account.cliffTime)}</p>
-                  <p className={`mt-0.5 text-[10px] ${schedule.account.isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'} font-medium`}>
-                    {formatDynamicRelativeTime(schedule.account.cliffTime, 'cliff', schedule.account.isActive)}
-                  </p>
                 </div>
               </div>
               <div className="rounded-lg bg-black/3 p-2.5 dark:bg-white/3 flex flex-col justify-between">
                 <p className="text-muted-foreground">End</p>
                 <div>
                   <p className="mt-1 font-medium">{formatDate(schedule.account.vestingEndTime)}</p>
-                  <p className={`mt-0.5 text-[10px] ${schedule.account.isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'} font-medium`}>
-                    {formatDynamicRelativeTime(schedule.account.vestingEndTime, 'end', schedule.account.isActive)}
-                  </p>
                 </div>
               </div>
             </div>
@@ -280,9 +263,9 @@ export function ScheduleCard({
                   <Button
                     variant="outline"
                     className="w-full h-10 rounded-xl border-black/10 bg-white/80 dark:border-white/15 dark:bg-white/3 disabled:pointer-events-auto disabled:opacity-70 disabled:bg-neutral-100/50 disabled:text-neutral-600 dark:disabled:bg-neutral-800/50 dark:disabled:text-neutral-300"
-                    disabled={actionLocked || schedule.claimableRaw.gt(ZERO)}
+                    disabled={actionLocked || schedule.claimable.gt(ZERO)}
                     onClick={() => {
-                       if (schedule.claimableRaw.lte(ZERO)) onClose(schedule);
+                       if (schedule.claimable.lte(ZERO)) onClose(schedule);
                     }}
                   >
                     {isClosingSchedule ? <Loader2 className="size-4 animate-spin" /> : <XCircle className="size-4" />}
@@ -290,7 +273,7 @@ export function ScheduleCard({
                   </Button>
                   
                   {/* Custom Tooltip on Hover */}
-                  {schedule.claimableRaw.gt(ZERO) && (
+                  {schedule.claimable.gt(ZERO) && (
                     <div className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-800 px-3 py-1.5 text-xs text-white opacity-0 transition-opacity duration-200 group-hover/tooltip:opacity-100 dark:bg-neutral-100 dark:text-neutral-900 z-50">
                       Beneficiary hasn't claimed yet
                       {/* Tooltip Arrow */}
@@ -308,6 +291,9 @@ export function ScheduleCard({
             </div>
           </div>
         </div>
+      </div>
+      <div className={cn("border-t px-5 py-2.5 flex items-center justify-center text-[10px] uppercase font-semibold tracking-wider w-full", statusColor)}>
+        {statusMessage}
       </div>
     </div>
   );

@@ -30,6 +30,6 @@ export function formatDate(unixTimestamp: BN): string {
     hour: 'numeric',
     minute: '2-digit',
     second: '2-digit',
-    timeZoneName: 'short',
+    hour12: true
   });
 }
