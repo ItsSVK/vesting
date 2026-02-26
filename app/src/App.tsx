@@ -1,4 +1,5 @@
 import { Analytics } from '@vercel/analytics/react';
+import { Footer } from './components/Footer';
 import { Header } from './components/Header';
 import { ActionBar } from './components/dashboard/ActionBar';
 import { BackgroundDecor } from './components/dashboard/BackgroundDecor';
@@ -15,12 +16,12 @@ function DashboardLayout() {
   const { connected } = useVestingContext();
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,#ffffff_0%,#f3f5f8_42%,#edf0f6_100%)] text-foreground dark:bg-[radial-gradient(circle_at_top,#1d2026_0%,#151820_48%,#11131a_100%)]">
+    <div className="relative min-h-screen flex flex-col overflow-x-clip bg-[radial-gradient(circle_at_top,#ffffff_0%,#f3f5f8_42%,#edf0f6_100%)] text-foreground dark:bg-[radial-gradient(circle_at_top,#1d2026_0%,#151820_48%,#11131a_100%)]">
       <BackgroundDecor />
 
       <Header />
 
-      <main className="mx-auto w-full max-w-6xl px-4 pb-20 pt-10 sm:px-6 lg:px-8">
+      <main className="flex-1 mx-auto w-full max-w-6xl px-4 pb-20 pt-10 sm:px-6 lg:px-8">
         <LandingPage />
 
         <section id="dashboard-control" className="scroll-mt-28 pt-6">
@@ -53,6 +54,8 @@ function DashboardLayout() {
           )}
         </section>
       </main>
+      
+      <Footer />
     </div>
   );
 }

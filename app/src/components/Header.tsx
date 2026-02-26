@@ -1,4 +1,7 @@
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { ModeToggle } from './mode-toggle';
+import { Github } from 'lucide-react';
+import { Button } from './ui/button';
 
 export function Header() {
   return (
@@ -26,8 +29,15 @@ export function Header() {
           </div>
           <span className="font-semibold text-lg tracking-tight hidden sm:inline-block">Vesting Vault</span>
         </div>
-        <div className="flex items-center gap-4">
-          <WalletMultiButton className="bg-primary! text-primary-foreground! hover:bg-primary/90! transition-colors! rounded-full! px-6! h-10! font-medium!" />
+        <div className="flex items-center gap-2 sm:gap-4">
+          <Button variant="outline" size="sm" className="hidden sm:flex gap-2 rounded-full h-10 px-4 bg-background/50 backdrop-blur" asChild>
+            <a href="https://github.com/ItsSVK/vesting" target="_blank" rel="noreferrer">
+              <Github className="w-4 h-4" />
+              <span>Star on GitHub</span>
+            </a>
+          </Button>
+          <ModeToggle />
+          <WalletMultiButton className="bg-primary! text-primary-foreground! hover:bg-primary/90! transition-colors! rounded-full! px-4 sm:px-6! h-10! font-medium! text-sm sm:text-base!" />
         </div>
       </div>
     </header>

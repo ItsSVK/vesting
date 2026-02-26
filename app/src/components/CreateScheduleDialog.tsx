@@ -15,6 +15,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useVestingSchedules } from '@/hooks/useVestingSchedules';
 import { parseErrorMessage, parseTokenAmount } from '@/dashboard/utils';
+import UsdcLogo from '../assets/USDC-icon_128x128.png';
+import EurcLogo from '../assets/EURC-icon_128x128.png';
 
 const formSchema = z.object({
   beneficiary: z.string().refine((val) => {
@@ -217,7 +219,7 @@ export function CreateScheduleDialog() {
                       onClick={() => field.onChange("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU")}
                     >
                       <img 
-                        src="src/assets/USDC-icon_128x128.png" 
+                        src={UsdcLogo} 
                         alt="USDC" 
                         className="w-4 h-4 rounded-full" 
                       />
@@ -231,7 +233,7 @@ export function CreateScheduleDialog() {
                       onClick={() => field.onChange("HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr")}
                     >
                       <img 
-                        src="src/assets/EURC-icon_128x128.png" 
+                        src={EurcLogo} 
                         alt="EURC" 
                         className="w-4 h-4 rounded-full" 
                       />

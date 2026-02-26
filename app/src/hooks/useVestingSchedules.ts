@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useWorkspace } from './useWorkspace';
 import { getMint } from '@solana/spl-token';
+import UsdcLogo from '../assets/USDC-icon_128x128.png';
+import EurcLogo from '../assets/EURC-icon_128x128.png';
 
 export function useVestingSchedules() {
   const { program, wallet } = useWorkspace();
@@ -27,11 +29,11 @@ export function useVestingSchedules() {
         const KNOWN_MINTS: Record<string, { name: string, logo: string }> = {
            "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU": {
               name: "USDC (Devnet)",
-              logo: "src/assets/USDC-icon_128x128.png",
+              logo: UsdcLogo,
            },
            "HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr": {
               name: "EURC (Devnet)",
-              logo: "src/assets/EURC-icon_128x128.png",
+              logo: EurcLogo,
            }
         };
 
