@@ -8,6 +8,7 @@ import { RevealSection } from './components/dashboard/RevealSection';
 import { SchedulesPanel } from './components/dashboard/SchedulesPanel';
 import { StatsGrid } from './components/dashboard/StatsGrid';
 import { WalletDisconnectedState } from './components/dashboard/WalletDisconnectedState';
+import { LandingPage } from './components/landing/LandingPage';
 import { DashboardProvider, useVestingContext } from './context/VestingDashboardContext';
 
 function DashboardLayout() {
@@ -20,33 +21,37 @@ function DashboardLayout() {
       <Header />
 
       <main className="mx-auto w-full max-w-6xl px-4 pb-20 pt-10 sm:px-6 lg:px-8">
-        <RevealSection>
-          <HeroSection />
-        </RevealSection>
+        <LandingPage />
 
-        {/* <RevealSection delay={80} className="mt-7">
-          <ContractCapabilitiesGrid />
-        </RevealSection> */}
-
-        {!connected ? (
-          <RevealSection delay={140} className="mt-7">
-            <WalletDisconnectedState />
+        <section id="dashboard-control" className="scroll-mt-28 pt-6">
+          <RevealSection>
+            <HeroSection />
           </RevealSection>
-        ) : (
-          <>
+
+          {/* <RevealSection delay={80} className="mt-7">
+            <ContractCapabilitiesGrid />
+          </RevealSection> */}
+
+          {!connected ? (
             <RevealSection delay={140} className="mt-7">
-              <StatsGrid />
+              <WalletDisconnectedState />
             </RevealSection>
+          ) : (
+            <>
+              <RevealSection delay={140} className="mt-7">
+                <StatsGrid />
+              </RevealSection>
 
-            <RevealSection delay={200} className="mt-5">
-              <ActionBar />
-            </RevealSection>
+              <RevealSection delay={200} className="mt-5">
+                <ActionBar />
+              </RevealSection>
 
-            <RevealSection delay={260} className="mt-7">
-              <SchedulesPanel />
-            </RevealSection>
-          </>
-        )}
+              <RevealSection delay={260} className="mt-7">
+                <SchedulesPanel />
+              </RevealSection>
+            </>
+          )}
+        </section>
       </main>
     </div>
   );

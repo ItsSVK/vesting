@@ -5,10 +5,13 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  --font-sans: "Inter", system-ui, sans-serif;
+  --font-sans: "SF Pro Display", "SF Pro Text", "Avenir Next", "Segoe UI Variable", "Inter", system-ui, sans-serif;
 }
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
   body {
     @apply bg-background text-foreground antialiased selection:bg-primary/30;
     @apply bg-background text-foreground;
@@ -29,6 +32,18 @@
   input[type="number"] {
     -moz-appearance: textfield;
     appearance: textfield;
+  }
+}
+
+@layer utilities {
+  @keyframes landing-float {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+      transform: translate3d(0, -16px, 0) scale(1.03);
+    }
   }
 }
 

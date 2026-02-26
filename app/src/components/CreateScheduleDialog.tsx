@@ -25,9 +25,9 @@ const formSchema = z.object({
   }, "Invalid Token Mint address"),
   totalAmount: z.coerce.number({ invalid_type_error: "Required" }).positive("Must be > 0"),
   unit: z.enum(["Sec", "Min", "Hour", "Day", "Week", "Month", "Year"]),
-  cliffDays: z.coerce.number({ invalid_type_error: "Required" }).min(0, "Must be >= 0"),
-  vestingDurationDays: z.coerce.number({ invalid_type_error: "Required" }).positive("Must be > 0"),
-  frequencyDays: z.coerce.number({ invalid_type_error: "Required" }).positive("Must be > 0"),
+  cliffDays: z.coerce.number({ invalid_type_error: "Required" }).int("No fractions").min(0, "Must be >= 0"),
+  vestingDurationDays: z.coerce.number({ invalid_type_error: "Required" }).int("No fractions").positive("Must be > 0"),
+  frequencyDays: z.coerce.number({ invalid_type_error: "Required" }).int("No fractions").positive("Must be > 0"),
 }).refine((data) => data.frequencyDays <= data.vestingDurationDays, {
   message: "Freq must be <= duration",
   path: ["frequencyDays"],
@@ -165,7 +165,7 @@ export function CreateScheduleDialog() {
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4" noValidate>
             <FormField
               control={form.control}
               name="beneficiary"
@@ -236,7 +236,7 @@ export function CreateScheduleDialog() {
                   <FormItem className="grid gap-1.5">
                     <FormLabel>Total Amount</FormLabel>
                     <FormControl>
-                      <Input type="number" step="any" placeholder="1000" min={0} {...field} value={field.value ?? ''} />
+                      <Input type="number" step="1" placeholder="1000" min={1} {...field} value={field.value ?? ''} />
                     </FormControl>
                     <FormMessage className="text-xs" />
                   </FormItem>
@@ -278,7 +278,7 @@ export function CreateScheduleDialog() {
                     <FormItem className="grid gap-1.5">
                       <FormLabel>Cliff ({form.watch("unit")})</FormLabel>
                       <FormControl>
-                        <Input type="number" min={0} {...field} value={field.value ?? ''} />
+                        <Input type="number" step={1} min={0} {...field} value={field.value ?? ''} />
                       </FormControl>
                       <FormMessage className="text-xs" />
                     </FormItem>
@@ -291,7 +291,7 @@ export function CreateScheduleDialog() {
                     <FormItem className="grid gap-1.5">
                       <FormLabel>Duration ({form.watch("unit")})</FormLabel>
                       <FormControl>
-                        <Input type="number" min={0} {...field} value={field.value ?? ''} />
+                        <Input type="number" step={1} min={1} {...field} value={field.value ?? ''} />
                       </FormControl>
                       <FormMessage className="text-xs" />
                     </FormItem>
@@ -304,7 +304,7 @@ export function CreateScheduleDialog() {
                     <FormItem className="grid gap-1.5">
                       <FormLabel>Freq ({form.watch("unit")})</FormLabel>
                       <FormControl>
-                        <Input type="number" min={0} {...field} value={field.value ?? ''} />
+                        <Input type="number" step={1} min={1} {...field} value={field.value ?? ''} />
                       </FormControl>
                       <FormMessage className="text-xs" />
                     </FormItem>

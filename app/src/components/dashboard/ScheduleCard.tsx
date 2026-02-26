@@ -50,7 +50,12 @@ export function ScheduleCard({
   const isClosingSchedule = processingActionKey === closeActionKey;
   const actionLocked = claimingAll || isClaimingSchedule || isRevokingSchedule || isClosingSchedule;
 
-  const formatDynamicRelativeTime = (unixTime: BN, type: 'start' | 'cliff' | 'end') => {
+  const formatDynamicRelativeTime = (unixTime: BN, type: 'start' | 'cliff' | 'end', isActive: boolean) => {
+
+    if (!isActive) {
+      return 'Revoked';
+    }
+
     const diffInSeconds = Math.floor(unixTime.toNumber() - nowUnix);
     const isPast = diffInSeconds <= 0;
     
@@ -119,8 +124,8 @@ export function ScheduleCard({
                 <p className="text-muted-foreground">Start</p>
                 <div>
                   <p className="mt-1 font-medium">{formatDate(schedule.account.startTime)}</p>
-                  <p className="mt-0.5 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                    {formatDynamicRelativeTime(schedule.account.startTime, 'start')}
+                  <p className={`mt-0.5 text-[10px] ${schedule.account.isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'} font-medium`}>
+                    {formatDynamicRelativeTime(schedule.account.startTime, 'start', schedule.account.isActive)}
                   </p>
                 </div>
               </div>
@@ -128,8 +133,8 @@ export function ScheduleCard({
                 <p className="text-muted-foreground">Cliff</p>
                 <div>
                   <p className="mt-1 font-medium">{formatDate(schedule.account.cliffTime)}</p>
-                  <p className="mt-0.5 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                    {formatDynamicRelativeTime(schedule.account.cliffTime, 'cliff')}
+                  <p className={`mt-0.5 text-[10px] ${schedule.account.isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'} font-medium`}>
+                    {formatDynamicRelativeTime(schedule.account.cliffTime, 'cliff', schedule.account.isActive)}
                   </p>
                 </div>
               </div>
@@ -137,8 +142,8 @@ export function ScheduleCard({
                 <p className="text-muted-foreground">End</p>
                 <div>
                   <p className="mt-1 font-medium">{formatDate(schedule.account.vestingEndTime)}</p>
-                  <p className="mt-0.5 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                    {formatDynamicRelativeTime(schedule.account.vestingEndTime, 'end')}
+                  <p className={`mt-0.5 text-[10px] ${schedule.account.isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'} font-medium`}>
+                    {formatDynamicRelativeTime(schedule.account.vestingEndTime, 'end', schedule.account.isActive)}
                   </p>
                 </div>
               </div>
