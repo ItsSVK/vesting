@@ -145,6 +145,7 @@ function buildProgram(payer: Keypair): Program {
 function assertSuccess(result: any, label: string) {
   if (typeof result?.err === "function") {
     const txErr = result.err();
+    console.log("ASSERT SUCCESS FAILED:", JSON.stringify(txErr));
     assert.fail(`${label}: expected success but transaction failed: ${JSON.stringify(txErr)}`);
   }
 }
@@ -566,96 +567,63 @@ describe("capstone_vesting_vault – withdraw", () => {
     assertCustomError(result, ERR.CliffNotPassed, "CliffNotPassed");
   });
 
-  it("❌ fails with InsufficientBalance at exact cliff (0 periods elapsed)", async () => {
-    // At cliff_time exactly: time_elapsed = 0 → 0 complete periods → 0 vested
+  it("✅ withdraws the 1st period's worth of tokens exactly at the cliff drop", async () => {
+    // At cliff_time exactly: time_elapsed = 30 days → 1 complete period → 300 vested
+    setClock(svm, BASE_TIME + THIRTY_DAYS);
+    const result = await callWithdraw(TOKENS_PER_PERIOD);
+    assertSuccess(result, "withdraw at cliff");
+    const balance = getTokenBalance(svm, beneficiaryAta);
+    assert.strictEqual(balance, BigInt(TOKENS_PER_PERIOD * DECIMAL_MULTIPLIER));
+  });
+
+  it("❌ fails with InsufficientBalance when requesting more right after the cliff drop", async () => {
     setClock(svm, BASE_TIME + THIRTY_DAYS);
     const result = await callWithdraw(1);
-    assertCustomError(result, ERR.InsufficientBalance, "0 periods at cliff");
+    assertCustomError(result, ERR.InsufficientBalance, "over-withdraw at cliff");
   });
 
-  it("❌ fails with InsufficientBalance when requesting more than vested (1 period in)", async () => {
-    // After 1 period past cliff: 300 tokens vested. Requesting 301 should fail.
-    setClock(svm, BASE_TIME + THIRTY_DAYS + THIRTY_DAYS);
-    const result = await callWithdraw(TOKENS_PER_PERIOD + 1);
-    assertCustomError(result, ERR.InsufficientBalance, "over-withdraw after 1 period");
-  });
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // HAPPY PATHS
-  // The tests below run sequentially — each one advances time and withdraws,
-  // building cumulative state. The order matters.
-  // ──────────────────────────────────────────────────────────────────────────
-
-  it("✅ withdraws 1 period's worth of tokens after period 1 elapses", async () => {
-    // clock: cliff + 1 period → 1 completed period → 300 vested (300M scaled)
-    setClock(svm, BASE_TIME + THIRTY_DAYS + THIRTY_DAYS);
-
+  it("✅ withdraws the 2nd period's tokens after period 2 elapses", async () => {
+    // clock: 60 days from start → 2 completed periods → 600 total vested, 300 withdrawn = 300 available
+    setClock(svm, BASE_TIME + 2 * THIRTY_DAYS);
     const result = await callWithdraw(TOKENS_PER_PERIOD);
-    assertSuccess(result, "withdraw period 1");
-
-    const balance = getTokenBalance(svm, beneficiaryAta);
-    assert.strictEqual(balance, BigInt(TOKENS_PER_PERIOD * DECIMAL_MULTIPLIER), "beneficiary balance after period 1");
-  });
-
-  it("❌ fails with InsufficientBalance right after draining period 1", async () => {
-    // Same clock as above — already withdrew all available 300, so available = 0
-    setClock(svm, BASE_TIME + THIRTY_DAYS + THIRTY_DAYS);
-    const result = await callWithdraw(1);
-    assertCustomError(result, ERR.InsufficientBalance, "nothing left after period 1 drained");
-  });
-
-  it("✅ partial withdraw: withdraws half of the newly vested tokens at period 2", async () => {
-    // clock: cliff + 2 periods → 2 periods vested = 600 total, 300 already withdrawn → 300 available
-    setClock(svm, BASE_TIME + THIRTY_DAYS + 2 * THIRTY_DAYS);
-
-    const partialAmount = TOKENS_PER_PERIOD / 2; // 150
-    const result = await callWithdraw(partialAmount);
-    assertSuccess(result, "partial withdraw period 2");
-
-    const balance = getTokenBalance(svm, beneficiaryAta);
-    // Previously had 300M, now has 300M + 150M = 450M (in scaled units)
-    assert.strictEqual(balance, BigInt((TOKENS_PER_PERIOD + partialAmount) * DECIMAL_MULTIPLIER));
-  });
-
-  it("✅ withdraws the remaining tokens left from period 2", async () => {
-    // Still at period 2 clock. 150 was already withdrawn this period, 150 remains.
-    setClock(svm, BASE_TIME + THIRTY_DAYS + 2 * THIRTY_DAYS);
-
-    const remaining = TOKENS_PER_PERIOD / 2; // 150 remaining from period 2
-    const result = await callWithdraw(remaining);
-    assertSuccess(result, "second partial withdraw period 2");
-
-    // Total: 300 (p1) + 150 + 150 (p2) = 600 = 2 full periods (in scaled units)
+    assertSuccess(result, "withdraw period 2");
     const balance = getTokenBalance(svm, beneficiaryAta);
     assert.strictEqual(balance, BigInt(2 * TOKENS_PER_PERIOD * DECIMAL_MULTIPLIER));
   });
 
-  it("❌ fails after fully draining period 2 — period 3 hasn't elapsed yet", async () => {
-    setClock(svm, BASE_TIME + THIRTY_DAYS + 2 * THIRTY_DAYS);
+  it("❌ fails right after draining period 2", async () => {
+    setClock(svm, BASE_TIME + 2 * THIRTY_DAYS);
     const result = await callWithdraw(1);
-    assertCustomError(result, ERR.InsufficientBalance, "period 2 fully drained");
+    assertCustomError(result, ERR.InsufficientBalance, "nothing left after period 2 drained");
   });
 
-  it("✅ withdraws the final period's tokens after vesting schedule ends", async () => {
-    // Past the full 90-day vesting: all 900 vested, 600 withdrawn → 300 left
-    setClock(svm, BASE_TIME + THIRTY_DAYS + NINETY_DAYS + 1);
-
-    const finalAmount = TOKENS_PER_PERIOD; // last 300
-    const result = await callWithdraw(finalAmount);
-    assertSuccess(result, "final withdraw");
-
-    // Beneficiary should now hold the entire totalAmount (in scaled units)
+  it("✅ partial withdraw: withdraws half of the newly vested tokens at period 3 (vesting end)", async () => {
+    // clock: base + 90 days → 3 periods vested = 900 total, 600 already withdrawn → 300 available
+    setClock(svm, BASE_TIME + 3 * THIRTY_DAYS);
+    const partialAmount = TOKENS_PER_PERIOD / 2; // 150
+    const result = await callWithdraw(partialAmount);
+    assertSuccess(result, "partial withdraw period 3");
     const balance = getTokenBalance(svm, beneficiaryAta);
-    assert.strictEqual(balance, BigInt(totalAmount.toNumber() * DECIMAL_MULTIPLIER), "all tokens received");
+    assert.strictEqual(balance, BigInt((2 * TOKENS_PER_PERIOD + partialAmount) * DECIMAL_MULTIPLIER));
+  });
 
+  it("✅ withdraws the remaining tokens left from period 3, emptying the vault", async () => {
+    // Still at base + 90 days. 150 was already withdrawn this period, 150 remains.
+    setClock(svm, BASE_TIME + 3 * THIRTY_DAYS);
+    const remaining = TOKENS_PER_PERIOD / 2; // 150 remaining from period 3
+    const result = await callWithdraw(remaining);
+    assertSuccess(result, "second partial withdraw period 3");
+    const balance = getTokenBalance(svm, beneficiaryAta);
+    assert.strictEqual(balance, BigInt(3 * TOKENS_PER_PERIOD * DECIMAL_MULTIPLIER));
+    
     // Vault should be completely empty
     const vaultBalance = getTokenBalance(svm, vestingVault);
     assert.strictEqual(vaultBalance, BigInt(0), "vault drained");
   });
 
   it("❌ fails with InsufficientBalance when trying to over-withdraw after full vest", async () => {
-    // All 900 is already withdrawn — nothing left, even though vesting is complete
-    setClock(svm, BASE_TIME + THIRTY_DAYS + NINETY_DAYS + 1);
+    // All 900 is already withdrawn — nothing left
+    setClock(svm, BASE_TIME + 3 * THIRTY_DAYS + 1);
     const result = await callWithdraw(1);
     assertCustomError(result, ERR.InsufficientBalance, "nothing left after full withdrawal");
   });
@@ -736,9 +704,11 @@ describe("capstone_vesting_vault – revoke", () => {
   });
 
   it("✅ revokes halfway through vesting (1 period elapsed)", async () => {
-    // 1. Advance time to 1 period elapsed (cliff + 1 period + 1s)
+    // 1. Advance time to 1 period elapsed from the start (cliff + 1s)
+    // Cliff is 30 days. We advance to 30 days + 1 second.
+    // At this point, 1 period (30 days) is fully vested.
     // Vested should be 300. Unvested 600. Inside vault: 900 * 10^6
-    setClock(svm, BASE_TIME + THIRTY_DAYS + THIRTY_DAYS + 1);    
+    setClock(svm, BASE_TIME + THIRTY_DAYS + 1);    
     
     // Check initial vault balance = 900 * 10^6
     assert.strictEqual(getTokenBalance(svm, vestingVault), BigInt(totalAmount.toNumber() * DECIMAL_MULTIPLIER));
@@ -780,7 +750,13 @@ describe("capstone_vesting_vault – revoke", () => {
     // is_active offset: 8 (disc) + 32 + 32 + 8 + 8 + 8 + 8 + 8 + 32 = 144
     assert.strictEqual(data[144], 0, "is_active should be 0 (false)");
 
-    // 5. Verify total_amount updated to vested amount
+    // 5. Verify revoked_at is updated
+    // revoked_at offset: 144 (is_active) + 1 = 145. u64 LE.
+    const revokedAt = data.readBigUInt64LE(145);
+    const expectedCurrentTime = BigInt(BASE_TIME + THIRTY_DAYS + 1);
+    assert.strictEqual(revokedAt, expectedCurrentTime, "revoked_at should be updated to current time");
+
+    // 6. Verify total_amount updated to vested amount
     // total_amount offset: 8 + 32 + 32 + 8 + 8 + 8 = 96. u64 LE.
     const newTotal = data.readBigUInt64LE(96);
     assert.strictEqual(newTotal, BigInt(TOKENS_PER_PERIOD * DECIMAL_MULTIPLIER), "total_amount should be updated to vested amount");

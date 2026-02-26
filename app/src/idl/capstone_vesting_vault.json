@@ -1,5 +1,5 @@
 {
-  "address": "HZjAbbJD1oNqesqMoCLpQK1CEATEnV8G1NFG9eQ1wtNH",
+  "address": "Buq2Xy1qRtYvzDoRYnAujChUHrp8b6fBGmgZsGFue5o2",
   "metadata": {
     "name": "capstone_vesting_vault",
     "version": "0.1.0",
@@ -907,6 +907,10 @@
           {
             "name": "is_active",
             "type": "bool"
+          },
+          {
+            "name": "revoked_at",
+            "type": "u64"
           },
           {
             "name": "frequency",

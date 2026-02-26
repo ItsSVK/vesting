@@ -134,6 +134,7 @@ pub fn handler(
         total_withdrawn: 0,
         token_mint: ctx.accounts.token_mint.key(),
         is_active: true,
+        revoked_at: 0,
         frequency,
         bump: ctx.bumps.vesting_state,
     });

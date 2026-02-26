@@ -268,23 +268,36 @@ export function ScheduleCard({
                 </>
               )}
 
-              {schedule.isGrantor && schedule.account.isActive && (
+              {schedule.isGrantor && schedule.account.isActive && schedule.timePercent < 100 && (
                 <Button variant="destructive" className="h-10 rounded-xl" disabled={actionLocked} onClick={() => onRevoke(schedule)}>
                   {isRevokingSchedule ? <Loader2 className="size-4 animate-spin" /> : <ShieldAlert className="size-4" />}
                   {isRevokingSchedule ? 'Revoking...' : 'Revoke Schedule'}
                 </Button>
               )}
 
-              {schedule.isGrantor && !schedule.account.isActive && (
-                <Button
-                  variant="outline"
-                  className="h-10 rounded-xl border-black/10 bg-white/80 dark:border-white/15 dark:bg-white/3"
-                  disabled={actionLocked}
-                  onClick={() => onClose(schedule)}
-                >
-                  {isClosingSchedule ? <Loader2 className="size-4 animate-spin" /> : <XCircle className="size-4" />}
-                  {isClosingSchedule ? 'Closing...' : 'Close Vault'}
-                </Button>
+              {schedule.isGrantor && (!schedule.account.isActive || schedule.timePercent === 100) && (
+                <div className="group/tooltip relative">
+                  <Button
+                    variant="outline"
+                    className="w-full h-10 rounded-xl border-black/10 bg-white/80 dark:border-white/15 dark:bg-white/3 disabled:pointer-events-auto disabled:opacity-70 disabled:bg-neutral-100/50 disabled:text-neutral-600 dark:disabled:bg-neutral-800/50 dark:disabled:text-neutral-300"
+                    disabled={actionLocked || schedule.claimableRaw.gt(ZERO)}
+                    onClick={() => {
+                       if (schedule.claimableRaw.lte(ZERO)) onClose(schedule);
+                    }}
+                  >
+                    {isClosingSchedule ? <Loader2 className="size-4 animate-spin" /> : <XCircle className="size-4" />}
+                    {isClosingSchedule ? 'Closing...' : 'Close Vault'}
+                  </Button>
+                  
+                  {/* Custom Tooltip on Hover */}
+                  {schedule.claimableRaw.gt(ZERO) && (
+                    <div className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-800 px-3 py-1.5 text-xs text-white opacity-0 transition-opacity duration-200 group-hover/tooltip:opacity-100 dark:bg-neutral-100 dark:text-neutral-900 z-50">
+                      Beneficiary hasn't claimed yet
+                      {/* Tooltip Arrow */}
+                      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-neutral-800 dark:border-t-neutral-100"></div>
+                    </div>
+                  )}
+                </div>
               )}
 
               {schedule.isBeneficiary && schedule.claimableRaw.lte(ZERO) && schedule.claimable.gt(ZERO) && (

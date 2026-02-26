@@ -12,6 +12,7 @@ pub struct VestingState {
     pub total_withdrawn: u64,
     pub token_mint: Pubkey,
     pub is_active: bool,
+    pub revoked_at: u64,
     pub frequency: u64,
     pub bump: u8,
 }
@@ -22,7 +23,11 @@ impl VestingState {
             return Some(0);
         }
 
-        let time_elapsed = current_time.checked_sub(self.cliff_time)?;
+        if current_time >= self.vesting_end_time {
+            return Some(self.total_amount);
+        }
+
+        let time_elapsed = current_time.checked_sub(self.start_time)?;
         let completed_periods = time_elapsed.checked_div(self.frequency)?;
 
         // Total number of periods in the full vesting schedule

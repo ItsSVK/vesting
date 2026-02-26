@@ -124,7 +124,7 @@ export function calculateVestedAmount(account: VestingAccount, now: BN): BN {
   if (totalPeriods.lte(ZERO)) return account.totalAmount;
 
   const tokensPerPeriod = account.totalAmount.div(totalPeriods);
-  const timeElapsed = now.sub(account.cliffTime);
+  const timeElapsed = now.sub(account.startTime);
   const completedPeriods = timeElapsed.div(account.frequency);
   const vested = completedPeriods.mul(tokensPerPeriod);
 
@@ -132,6 +132,9 @@ export function calculateVestedAmount(account: VestingAccount, now: BN): BN {
 }
 
 export function calculateTimePercent(account: VestingAccount, now: BN): number {
+
+  if (!account.isActive) now = account.revokedAt;
+
   const totalDuration = account.vestingEndTime.sub(account.startTime);
   if (totalDuration.lte(ZERO)) return account.isActive ? 0 : 100;
   if (now.lte(account.startTime)) return 0;

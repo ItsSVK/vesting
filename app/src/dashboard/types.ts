@@ -13,6 +13,7 @@ export interface VestingAccount {
   totalWithdrawn: BN;
   tokenMint: PublicKey;
   isActive: boolean;
+  revokedAt: BN;
   frequency: BN;
 }
 

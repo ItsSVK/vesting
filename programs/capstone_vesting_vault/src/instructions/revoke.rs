@@ -101,6 +101,7 @@ pub fn handler(ctx: Context<Revoke>) -> Result<()> {
     // total_amount is now the ceiling the beneficiary can still claim.
     ctx.accounts.vesting_state.total_amount = vested_amount;
     ctx.accounts.vesting_state.is_active = false;
+    ctx.accounts.vesting_state.revoked_at = now;
 
     Ok(())
 }

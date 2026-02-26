@@ -25,12 +25,12 @@ const formSchema = z.object({
   }, "Invalid Token Mint address"),
   totalAmount: z.coerce.number({ invalid_type_error: "Required" }).positive("Must be > 0"),
   unit: z.enum(["Sec", "Min", "Hour", "Day", "Week", "Month", "Year"]),
-  cliffDays: z.coerce.number({ invalid_type_error: "Required" }).int("No fractions").min(0, "Must be >= 0"),
-  vestingDurationDays: z.coerce.number({ invalid_type_error: "Required" }).int("No fractions").positive("Must be > 0"),
-  frequencyDays: z.coerce.number({ invalid_type_error: "Required" }).int("No fractions").positive("Must be > 0"),
-}).refine((data) => data.frequencyDays <= data.vestingDurationDays, {
+  cliffDuration: z.coerce.number({ invalid_type_error: "Required" }).int("No fractions").min(0, "Must be >= 0"),
+  vestingDuration: z.coerce.number({ invalid_type_error: "Required" }).int("No fractions").positive("Must be > 0"),
+  frequencyDuration: z.coerce.number({ invalid_type_error: "Required" }).int("No fractions").positive("Must be > 0"),
+}).refine((data) => data.frequencyDuration <= data.vestingDuration, {
   message: "Freq must be <= duration",
-  path: ["frequencyDays"],
+  path: ["frequencyDuration"],
 });
 
 export function CreateScheduleDialog() {
@@ -45,10 +45,10 @@ export function CreateScheduleDialog() {
       beneficiary: '',
       tokenMint: '',
       totalAmount: undefined,
-      vestingDurationDays: undefined,
-      cliffDays: undefined,
-      frequencyDays: undefined,
-      unit: 'Sec'
+      vestingDuration: undefined,
+      cliffDuration: undefined,
+      frequencyDuration: undefined,
+      unit: 'Min'
     },
   });
 
@@ -95,9 +95,9 @@ export function CreateScheduleDialog() {
         }
         
         // Contract now takes raw durations — it multiplies by the unit internally
-        const cliffDuration = new BN(values.cliffDays);
-        const vestingDuration = new BN(values.vestingDurationDays);
-        const frequency = new BN(values.frequencyDays);
+        const cliffDuration = new BN(values.cliffDuration);
+        const vestingDuration = new BN(values.vestingDuration);
+        const frequency = new BN(values.frequencyDuration);
         const amount = new BN(values.totalAmount);
         const unit = TimeUnit[values.unit];
 
@@ -273,7 +273,7 @@ export function CreateScheduleDialog() {
             <div className="grid grid-cols-3 gap-4 items-start">
                <FormField
                   control={form.control}
-                  name="cliffDays"
+                  name="cliffDuration"
                   render={({ field }) => (
                     <FormItem className="grid gap-1.5">
                       <FormLabel>Cliff ({form.watch("unit")})</FormLabel>
@@ -286,7 +286,7 @@ export function CreateScheduleDialog() {
                 />
                <FormField
                   control={form.control}
-                  name="vestingDurationDays"
+                  name="vestingDuration"
                   render={({ field }) => (
                     <FormItem className="grid gap-1.5">
                       <FormLabel>Duration ({form.watch("unit")})</FormLabel>
@@ -299,7 +299,7 @@ export function CreateScheduleDialog() {
                 />
                <FormField
                   control={form.control}
-                  name="frequencyDays"
+                  name="frequencyDuration"
                   render={({ field }) => (
                     <FormItem className="grid gap-1.5">
                       <FormLabel>Freq ({form.watch("unit")})</FormLabel>
