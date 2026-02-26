@@ -60,6 +60,11 @@ export function useVestingActions({
         if (!silent) {
           toast.success('Tokens claimed', {
             description: `Signature: ${signature.slice(0, 8)}...`,
+            action: {
+              label: 'View on Explorer',
+              onClick: () => window.open(`https://explorer.solana.com/tx/${signature}?cluster=devnet`, '_blank'),
+            },
+            duration: 3000,
           });
         }
 
@@ -78,9 +83,9 @@ export function useVestingActions({
 
   const handleClaim = useCallback(
     async (schedule: DecoratedSchedule, requestedRawAmount?: BN) => {
-      const maxWithdrawableRaw = schedule.claimableRaw;
+      const maxWithdrawableRaw = schedule.claimable;
       if (maxWithdrawableRaw.lte(ZERO)) {
-        toast.message('No claimable whole tokens right now.');
+        toast.message('No claimable tokens right now.');
         return;
       }
 
@@ -145,6 +150,11 @@ export function useVestingActions({
 
         toast.success('Schedule revoked', {
           description: `Signature: ${signature.slice(0, 8)}...`,
+          action: {
+            label: 'View on Explorer',
+            onClick: () => window.open(`https://explorer.solana.com/tx/${signature}?cluster=devnet`, '_blank'),
+          },
+          duration: 3000,
         });
         await refetch();
       } catch (error) {
@@ -185,6 +195,11 @@ export function useVestingActions({
 
         toast.success('Vesting account closed', {
           description: `Signature: ${signature.slice(0, 8)}...`,
+          action: {
+            label: 'View on Explorer',
+            onClick: () => window.open(`https://explorer.solana.com/tx/${signature}?cluster=devnet`, '_blank'),
+          },
+          duration: 3000,
         });
         await refetch();
       } catch (error) {
@@ -202,7 +217,7 @@ export function useVestingActions({
     if (!program || !publicKey) return;
 
     const claimableSchedules = decoratedSchedules.filter(
-      (schedule) => schedule.isBeneficiary && schedule.claimableRaw.gt(ZERO),
+      (schedule) => schedule.isBeneficiary && schedule.claimable.gt(ZERO),
     );
 
     if (claimableSchedules.length === 0) {
@@ -215,7 +230,7 @@ export function useVestingActions({
 
     try {
       for (const schedule of claimableSchedules) {
-        const succeeded = await withdrawFromSchedule(schedule, schedule.claimableRaw, true);
+        const succeeded = await withdrawFromSchedule(schedule, schedule.claimable, true);
         if (succeeded) successfulClaims += 1;
       }
 

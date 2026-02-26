@@ -7,14 +7,14 @@ import { Info } from 'lucide-react';
 import { useWorkspace } from '../hooks/useWorkspace';
 import { BN } from '@coral-xyz/anchor';
 import { PublicKey, SystemProgram } from '@solana/web3.js';
-import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getMint } from '@solana/spl-token';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useVestingSchedules } from '@/hooks/useVestingSchedules';
-import { parseErrorMessage } from '@/dashboard/utils';
+import { parseErrorMessage, parseTokenAmount } from '@/dashboard/utils';
 
 const formSchema = z.object({
   beneficiary: z.string().refine((val) => {
@@ -98,7 +98,21 @@ export function CreateScheduleDialog() {
         const cliffDuration = new BN(values.cliffDuration);
         const vestingDuration = new BN(values.vestingDuration);
         const frequency = new BN(values.frequencyDuration);
-        const amount = new BN(values.totalAmount);
+        
+        let mintDecimals = 9;
+        try {
+          const mintInfo = await getMint(program.provider.connection, tokenMintPubkey);
+          mintDecimals = mintInfo.decimals;
+        } catch (e) {
+          console.warn("Could not fetch mint decimals, defaulting to 9", e);
+        }
+        
+        const amount = parseTokenAmount(values.totalAmount.toString(), mintDecimals);
+        if (!amount) {
+           toast.error("Invalid amount");
+           return;
+        }
+        
         const unit = TimeUnit[values.unit];
 
         // PDAs and ATAs
@@ -130,7 +144,12 @@ export function CreateScheduleDialog() {
             .rpc();
 
         toast.success("Vesting Schedule Created!", {
-            description: `Transaction Signature: ${tx.slice(0,8)}...`
+            description: `Signature: ${tx.slice(0,8)}...`,
+            action: {
+              label: 'View on Explorer',
+              onClick: () => window.open(`https://explorer.solana.com/tx/${tx}?cluster=devnet`, '_blank'),
+            },
+            duration: 3000,
         });
         setOpen(false);
         form.reset();

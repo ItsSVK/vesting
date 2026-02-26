@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-capstone_vesting_vault = "Buq2Xy1qRtYvzDoRYnAujChUHrp8b6fBGmgZsGFue5o2"
+capstone_vesting_vault = "AD8rbtNK1GW3u6yVJxr3zGKf2hhTuGs9zCmsidhpR982"
 
 [registry]
 url = "https://api.apr.dev"

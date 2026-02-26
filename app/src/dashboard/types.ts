@@ -33,6 +33,9 @@ export interface DecoratedSchedule extends VestingSchedule {
   withdrawnPercent: number;
   timePercent: number;
   nextUnlock: BN | null;
+  decimals: number;
+  mintName?: string;
+  mintLogoUrl?: string;
 }
 
 export interface DashboardStats {

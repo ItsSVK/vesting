@@ -51,7 +51,6 @@ pub struct Withdraw<'info> {
 
 pub fn handler(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
     let now = Clock::get()?.unix_timestamp as u64;
-    let amount = amount * 10u64.pow(ctx.accounts.token_mint.decimals as u32);
 
     let state = &ctx.accounts.vesting_state;
 

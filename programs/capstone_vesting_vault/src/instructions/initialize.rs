@@ -93,8 +93,6 @@ pub fn handler(
     );
     // require_gte!(cliff_duration, start_time, VestingError::InvalidCliffTime);
 
-    let total_amount = total_amount * 10u64.pow(ctx.accounts.token_mint.decimals as u32);
-
     let multiplier = match unit {
         TimeUnit::Sec => 1,
         TimeUnit::Min => 60,

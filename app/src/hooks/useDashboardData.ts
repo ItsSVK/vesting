@@ -44,6 +44,9 @@ export function useDashboardData({ schedules, now, publicKey, activeTab, searchT
           : Number(account.totalWithdrawn.muln(10_000).div(account.totalAmount).toString()) / 100,
         timePercent: calculateTimePercent(account, now),
         nextUnlock: calculateNextUnlock(account, now),
+        decimals: (account as any).decimals ?? 9,
+        mintName: (account as any).mintName,
+        mintLogoUrl: (account as any).mintLogoUrl,
       };
     });
   }, [now, publicKey, schedules]);
@@ -68,7 +71,7 @@ export function useDashboardData({ schedules, now, publicKey, activeTab, searchT
         receivingCount += 1;
         totalAllocatedToBeneficiary = totalAllocatedToBeneficiary.add(schedule.account.totalAmount);
         totalClaimable = totalClaimable.add(schedule.claimable);
-        if (schedule.claimableRaw.gt(ZERO)) {
+        if (schedule.claimable.gt(ZERO)) {
           readyToClaimCount += 1;
         }
       }
@@ -97,7 +100,7 @@ export function useDashboardData({ schedules, now, publicKey, activeTab, searchT
       if (activeTab === 'receiving' && !schedule.isBeneficiary) return false;
       if (activeTab === 'granting' && !schedule.isGrantor) return false;
       if (activeTab === 'inactive' && schedule.account.isActive) return false;
-      if (activeTab === 'claimable' && (!schedule.isBeneficiary || schedule.claimableRaw.lte(ZERO))) {
+      if (activeTab === 'claimable' && (!schedule.isBeneficiary || schedule.claimable.lte(ZERO))) {
         return false;
       }
 

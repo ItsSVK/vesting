@@ -26,7 +26,7 @@ import idl from "../target/idl/capstone_vesting_vault.json";
 const PROGRAM_ID = new PublicKey(idl.address);
 const TOKEN_DECIMALS = 6;
 const MINT_AMOUNT = new BN(1_000_000_000); // 1000 tokens (with 6 decimals)
-const VEST_AMOUNT = new BN(500);           // 500 tokens (raw, contract scales by decimals)
+const VEST_AMOUNT = new BN(500).mul(new BN(10 ** TOKEN_DECIMALS));           // 500 tokens (raw, contract no longer scales)
 
 // ─── Time constants (in seconds) ─────────────────────────────────────────────
 const ONE_DAY = 60 * 60 * 24;
@@ -470,15 +470,15 @@ describe("capstone_vesting_vault – withdraw", () => {
   const frequency      = new BN(THIRTY_DAYS);
   // 900 divides cleanly into 3 periods of 300 each
   // Contract stores total_amount = 900 * 10^6 internally
-  const totalAmount     = new BN(900);
-  const TOKENS_PER_PERIOD = 300;
   const DECIMAL_MULTIPLIER = 10 ** TOKEN_DECIMALS;
+  const totalAmount     = new BN(900 * DECIMAL_MULTIPLIER);
+  const TOKENS_PER_PERIOD = 300;
 
   /** Helper: sends a withdraw instruction signed by the beneficiary.
    *  `amount` is in raw tokens — contract auto-scales by 10^decimals. */
   async function callWithdraw(amount: number): Promise<any> {
     const ix = await beneficiaryProgram.methods
-      .withdraw(new BN(amount))
+      .withdraw(new BN(amount * DECIMAL_MULTIPLIER))
       .accounts({
         beneficiary: beneficiary.publicKey,
         grantor: grantor.publicKey,
@@ -657,9 +657,9 @@ describe("capstone_vesting_vault – revoke", () => {
   const cliffDuration = new BN(THIRTY_DAYS);
   const vestDuration  = new BN(NINETY_DAYS);
   const frequency     = new BN(THIRTY_DAYS);
-  const totalAmount   = new BN(900);
-  const TOKENS_PER_PERIOD = 300;
   const DECIMAL_MULTIPLIER = 10 ** TOKEN_DECIMALS;
+  const totalAmount   = new BN(900 * DECIMAL_MULTIPLIER);
+  const TOKENS_PER_PERIOD = 300;
 
   before(async () => {
     svm = new LiteSVM().withDefaultPrograms();
@@ -711,7 +711,7 @@ describe("capstone_vesting_vault – revoke", () => {
     setClock(svm, BASE_TIME + THIRTY_DAYS + 1);    
     
     // Check initial vault balance = 900 * 10^6
-    assert.strictEqual(getTokenBalance(svm, vestingVault), BigInt(totalAmount.toNumber() * DECIMAL_MULTIPLIER));
+    assert.strictEqual(getTokenBalance(svm, vestingVault), BigInt(totalAmount.toNumber()));
 
     // 2. Call Revoke
     const ix = await program.methods
@@ -772,7 +772,7 @@ describe("capstone_vesting_vault – revoke", () => {
     const beneficiaryAta = getAssociatedTokenAddressSync(mintKp.publicKey, beneficiary.publicKey, false, TOKEN_PROGRAM_ID);
     
     const ix = await bProg.methods
-      .withdraw(new BN(TOKENS_PER_PERIOD))
+      .withdraw(new BN(TOKENS_PER_PERIOD * DECIMAL_MULTIPLIER))
       .accounts({
         beneficiary: beneficiary.publicKey,
         grantor: grantor.publicKey,

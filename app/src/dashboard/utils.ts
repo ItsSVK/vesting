@@ -170,12 +170,28 @@ export function formatRelativeFromNow(unixTime: BN): string {
   return `in ${secondsLeft}s`;
 }
 
-export function parseWholeTokenAmount(value: string): BN | null {
+export function parseTokenAmount(value: string, decimals: number): BN | null {
   const normalized = value.trim();
-  if (!/^\d+$/.test(normalized)) return null;
+  // Allow numbers and an optional decimal point (but no negative signs or multiple decimals)
+  if (!/^\d*\.?\d*$/.test(normalized) || normalized === '' || normalized === '.') {
+    return null;
+  }
 
   try {
-    return new BN(normalized);
+    const parts = normalized.split('.');
+    let integerPart = parts[0] || '0';
+    let fractionalPart = parts[1] || '';
+
+    // If fractional part has more digits than allowed decimals, truncate it
+    if (fractionalPart.length > decimals) {
+      fractionalPart = fractionalPart.slice(0, decimals);
+    }
+
+    // Pad the fractional part with zeros to reach the correct decimals
+    fractionalPart = fractionalPart.padEnd(decimals, '0');
+
+    // Combine string and parse
+    return new BN(integerPart + fractionalPart);
   } catch {
     return null;
   }

@@ -6,7 +6,7 @@ import { Input } from '../ui/input';
 import { formatDate, formatTokenAmount } from '../../lib/formatters';
 import { cn } from '../../lib/utils';
 import type { DecoratedSchedule } from '../../dashboard/types';
-import { parseWholeTokenAmount, formatRelativeFromNow, shortenAddress } from '../../dashboard/utils';
+import { parseTokenAmount, formatRelativeFromNow, shortenAddress } from '../../dashboard/utils';
 import { ZERO } from '../../dashboard/constants';
 
 
@@ -36,11 +36,11 @@ export function ScheduleCard({
   onClose,
 }: ScheduleCardProps) {
   const scheduleKey = schedule.publicKey.toString();
-  const parsedPartialAmount = parseWholeTokenAmount(partialInput);
+  const parsedPartialAmount = parseTokenAmount(partialInput, schedule.decimals);
   const hasPartialInput = partialInput.trim().length > 0;
-  const partialExceedsClaimable = parsedPartialAmount !== null && parsedPartialAmount.gt(schedule.claimableRaw);
+  const partialExceedsClaimable = parsedPartialAmount !== null && parsedPartialAmount.gt(schedule.claimable);
   const partialReady =
-    parsedPartialAmount !== null && parsedPartialAmount.gt(ZERO) && parsedPartialAmount.lte(schedule.claimableRaw);
+    parsedPartialAmount !== null && parsedPartialAmount.gt(ZERO) && parsedPartialAmount.lte(schedule.claimable);
 
   const claimActionKey = `claim:${scheduleKey}`;
   const revokeActionKey = `revoke:${scheduleKey}`;
@@ -105,10 +105,39 @@ export function ScheduleCard({
               <h3 className="text-lg font-medium tracking-tight">
                 {schedule.isBeneficiary ? 'Incoming Vesting Stream' : 'Outgoing Vesting Stream'}
               </h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Vesting State: {shortenAddress(schedule.publicKey)} • Mint: {shortenAddress(schedule.account.tokenMint)}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">Counterparty: {shortenAddress(schedule.counterparty)}</p>
+              <div className="mt-4 flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                <a 
+                  href={`https://explorer.solana.com/address/${schedule.publicKey.toString()}?cluster=devnet`} 
+                  target="_blank" rel="noopener noreferrer" 
+                  className="flex items-center gap-1.5 rounded-md bg-black/5 px-2 py-1 transition-colors hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10"
+                >
+                  <span className="opacity-70">Vault</span>
+                  <span className="text-foreground">{shortenAddress(schedule.publicKey)}</span>
+                </a>
+                
+                <a 
+                  href={`https://explorer.solana.com/address/${schedule.account.tokenMint.toString()}?cluster=devnet`} 
+                  target="_blank" rel="noopener noreferrer" 
+                  className="flex items-center gap-1.5 rounded-md bg-black/5 px-2 py-1 transition-colors hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10"
+                >
+                  <span className="opacity-70">Mint</span>
+                  <div className="flex items-center gap-1.5">
+                    {schedule.mintLogoUrl && (
+                      <img src={schedule.mintLogoUrl} alt={schedule.mintName || "Token"} className="size-3.5 rounded-full" />
+                    )}
+                    <span className="text-foreground">{schedule.mintName || shortenAddress(schedule.account.tokenMint)}</span>
+                  </div>
+                </a>
+
+                <a 
+                  href={`https://explorer.solana.com/address/${schedule.counterparty.toString()}?cluster=devnet`} 
+                  target="_blank" rel="noopener noreferrer" 
+                  className="flex items-center gap-1.5 rounded-md bg-black/5 px-2 py-1 transition-colors hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10"
+                >
+                  <span className="opacity-70">Beneficiary</span>
+                  <span className="text-foreground">{shortenAddress(schedule.counterparty)}</span>
+                </a>
+              </div>
             </div>
 
             <div className="grid gap-2 text-xs sm:grid-cols-3">
@@ -147,12 +176,21 @@ export function ScheduleCard({
               </div>
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Timeline Progress</span>
-                  <span className="font-medium">{schedule.timePercent.toFixed(1)}%</span>
+                  <span className="text-muted-foreground">
+                    {schedule.account.isActive ? 'Timeline Progress' : 'Timeline (Stopped)'}
+                  </span>
+                  <span className="font-medium">
+                    {schedule.timePercent.toFixed(1)}%
+                  </span>
                 </div>
                 <div className="h-1.5 rounded-full bg-black/10 dark:bg-white/10">
                   <div
-                    className="h-full rounded-full bg-linear-to-r from-sky-600 to-emerald-500 transition-all duration-700"
+                    className={cn(
+                      "h-full rounded-full transition-all duration-700",
+                      schedule.account.isActive 
+                        ? "bg-linear-to-r from-sky-600 to-emerald-500" 
+                        : "bg-neutral-300 dark:bg-neutral-700"
+                    )}
                     style={{ width: `${schedule.timePercent}%` }}
                   />
                 </div>
@@ -161,7 +199,7 @@ export function ScheduleCard({
                 Next unlock:{' '}
                 {schedule.nextUnlock
                   ? `${formatDate(schedule.nextUnlock)} (${formatRelativeFromNow(schedule.nextUnlock)})`
-                  : 'No upcoming unlock'}
+                  : schedule.account.isActive ? 'No upcoming unlock' : 'Schedule revoked'}
               </p>
             </div>
           </div>
@@ -202,8 +240,8 @@ export function ScheduleCard({
                     <Input
                       value={partialInput}
                       onChange={(event) => onPartialInputChange(event.target.value)}
-                      inputMode="numeric"
-                      pattern="[0-9]*"
+                      inputMode="decimal"
+                      pattern="[0-9]*\.?[0-9]*"
                       placeholder="Partial amount"
                       className="h-10 rounded-xl border-black/10 bg-white/80 text-sm dark:border-white/15 dark:bg-white/3"
                       disabled={actionLocked}
@@ -212,14 +250,14 @@ export function ScheduleCard({
                       type="button"
                       variant="outline"
                       className="h-10 rounded-xl border-black/10 dark:border-white/15"
-                      disabled={actionLocked || schedule.claimableRaw.lte(ZERO)}
+                      disabled={actionLocked || schedule.claimable.lte(ZERO)}
                       onClick={onPartialMax}
                     >
                       Max
                     </Button>
                   </div>
                   {hasPartialInput && parsedPartialAmount === null && (
-                    <p className="text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">Enter whole numbers only.</p>
+                    <p className="text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">Enter numbers only.</p>
                   )}
                   {partialExceedsClaimable && (
                     <p className="text-[11px] leading-relaxed text-rose-700 dark:text-rose-300">
@@ -242,7 +280,7 @@ export function ScheduleCard({
                     type="button"
                     variant="outline"
                     className="h-10 rounded-xl border-black/10 bg-white/80 dark:border-white/15 dark:bg-white/3"
-                    disabled={actionLocked || schedule.claimableRaw.lte(ZERO)}
+                    disabled={actionLocked || schedule.claimable.lte(ZERO)}
                     onClick={() => onClaim(schedule)}
                   >
                     <ArrowDownToLine className="size-4" />
@@ -283,11 +321,6 @@ export function ScheduleCard({
                 </div>
               )}
 
-              {schedule.isBeneficiary && schedule.claimableRaw.lte(ZERO) && schedule.claimable.gt(ZERO) && (
-                <p className="text-[11px] leading-relaxed text-muted-foreground">
-                  Program accepts whole token units in `withdraw(amount)`, then applies mint decimals on-chain.
-                </p>
-              )}
             </div>
           </div>
         </div>
