@@ -179,7 +179,7 @@ export function parseTokenAmount(value: string, decimals: number): BN | null {
 
   try {
     const parts = normalized.split('.');
-    let integerPart = parts[0] || '0';
+    const integerPart = parts[0] || '0';
     let fractionalPart = parts[1] || '';
 
     // If fractional part has more digits than allowed decimals, truncate it

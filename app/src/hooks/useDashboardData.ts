@@ -44,9 +44,9 @@ export function useDashboardData({ schedules, now, publicKey, activeTab, searchT
           : Number(account.totalWithdrawn.muln(10_000).div(account.totalAmount).toString()) / 100,
         timePercent: calculateTimePercent(account, now),
         nextUnlock: calculateNextUnlock(account, now),
-        decimals: (account as any).decimals ?? 9,
-        mintName: (account as any).mintName,
-        mintLogoUrl: (account as any).mintLogoUrl,
+        decimals: ((account as unknown as Record<string, unknown>).decimals as number | undefined) ?? 9,
+        mintName: (account as unknown as Record<string, unknown>).mintName as string | undefined,
+        mintLogoUrl: (account as unknown as Record<string, unknown>).mintLogoUrl as string | undefined,
       };
     });
   }, [now, publicKey, schedules]);

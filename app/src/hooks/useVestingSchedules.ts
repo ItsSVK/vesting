@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import type { PublicKey } from '@solana/web3.js';
 import { useWorkspace } from './useWorkspace';
 import { getMint } from '@solana/spl-token';
 import UsdcLogo from '../assets/USDC-icon_128x128.png';
@@ -20,9 +21,9 @@ export function useVestingSchedules() {
         // Filter those relevant to the connected wallet
         const userPubkey = wallet.publicKey.toString();
         
-        const accounts = accountsRaw.filter((acc: any) => {
-           return acc.account.grantor.toString() === userPubkey || 
-                  acc.account.beneficiary.toString() === userPubkey;
+        const accounts = accountsRaw.filter((acc: { account: Record<string, unknown> }) => {
+           return String(acc.account.grantor) === userPubkey || 
+                  String(acc.account.beneficiary) === userPubkey;
         });
 
         // Hardcode known devnet mints for richer UI
@@ -39,10 +40,10 @@ export function useVestingSchedules() {
 
         // Resolve decimals and metadata for each token mint
         const itemsWithDecimals = await Promise.all(
-          accounts.map(async (acc: any) => {
-            const mintStr = acc.account.tokenMint.toString();
+          accounts.map(async (acc: { account: Record<string, unknown> }) => {
+            const mintStr = String(acc.account.tokenMint);
             try {
-              const mintInfo = await getMint(program.provider.connection, acc.account.tokenMint);
+              const mintInfo = await getMint(program.provider.connection, acc.account.tokenMint as PublicKey);
               acc.account.decimals = mintInfo.decimals;
             } catch (err) {
               console.error("Failed to fetch mint for", mintStr, err);

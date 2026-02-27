@@ -11,7 +11,6 @@ import { toast } from 'sonner';
 import { ZERO } from '../dashboard/constants';
 import type { DecoratedSchedule } from '../dashboard/types';
 import { parseErrorMessage } from '../dashboard/utils';
-// @ts-ignore
 import type { Program } from '@coral-xyz/anchor';
 
 interface UseVestingActionsProps {

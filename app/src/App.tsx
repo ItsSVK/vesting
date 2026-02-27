@@ -4,7 +4,6 @@ import { Header } from './components/Header';
 import { BackToTop } from './components/BackToTop';
 import { ActionBar } from './components/dashboard/ActionBar';
 import { BackgroundDecor } from './components/dashboard/BackgroundDecor';
-// import { ContractCapabilitiesGrid } from './components/dashboard/ContractCapabilitiesGrid';
 import { HeroSection } from './components/dashboard/HeroSection';
 import { RevealSection } from './components/dashboard/RevealSection';
 import { SchedulesPanel } from './components/dashboard/SchedulesPanel';
@@ -29,10 +28,6 @@ function DashboardLayout() {
           <RevealSection>
             <HeroSection />
           </RevealSection>
-
-          {/* <RevealSection delay={80} className="mt-7">
-            <ContractCapabilitiesGrid />
-          </RevealSection> */}
 
           {!connected ? (
             <RevealSection delay={140} className="mt-7">
