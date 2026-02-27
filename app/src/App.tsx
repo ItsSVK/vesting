@@ -1,6 +1,7 @@
 import { Analytics } from '@vercel/analytics/react';
 import { Footer } from './components/Footer';
 import { Header } from './components/Header';
+import { BackToTop } from './components/BackToTop';
 import { ActionBar } from './components/dashboard/ActionBar';
 import { BackgroundDecor } from './components/dashboard/BackgroundDecor';
 // import { ContractCapabilitiesGrid } from './components/dashboard/ContractCapabilitiesGrid';
@@ -56,6 +57,7 @@ function DashboardLayout() {
       </main>
       
       <Footer />
+      <BackToTop />
     </div>
   );
 }

@@ -174,7 +174,7 @@ export function CreateScheduleDialog() {
       if (!isOpen) form.reset();
     }}>
       <DialogTrigger asChild>
-        <Button className="w-full justify-start h-12" variant="outline">
+        <Button className="w-full justify-start h-12 bg-primary text-primary-foreground hover:bg-primary/90" variant="default">
           Create Vesting Schedule
         </Button>
       </DialogTrigger>

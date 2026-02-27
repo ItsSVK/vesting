@@ -98,7 +98,15 @@ export function LandingHero({
             >
               <a href="#contract-flow">See Contract Flow</a>
             </Button>
-          </div>
+            </div>
+            <Button
+              asChild
+              variant="outline"
+              size="lg"
+              className="h-11 rounded-full border-black/10 bg-white/80 px-6 dark:border-white/20 dark:bg-white/8"
+            >
+              <a href="#interactive-contract-flow">See Interactive Contract Flow</a>
+            </Button>
         </div>
 
         <div className="relative">
@@ -131,14 +139,14 @@ export function LandingHero({
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-black/5 bg-black/[0.03] p-3 dark:border-white/10 dark:bg-white/[0.05]">
+              <div className="rounded-2xl border border-black/5 bg-black/3 p-3 dark:border-white/10 dark:bg-white/5">
                 <div className="mb-2 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
                   <span>Ready-to-Claim Schedules</span>
                   <Wallet className="size-3.5" />
                 </div>
                 <div className="h-2 rounded-full bg-black/8 dark:bg-white/10">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-sky-400 via-cyan-400 to-emerald-400 transition-all duration-700"
+                    className="h-full rounded-full bg-linear-to-r from-sky-400 via-cyan-400 to-emerald-400 transition-all duration-700"
                     style={{ width: `${readinessWidth}%` }}
                   />
                 </div>
@@ -149,7 +157,7 @@ export function LandingHero({
             </CardContent>
           </Card>
 
-          <Card className="absolute -bottom-5 right-4 w-[78%] rounded-2xl border-white/70 bg-white/88 shadow-xl backdrop-blur-md dark:border-white/10 dark:bg-black/35 sm:-right-2">
+          <Card className="mt-4 ml-auto w-full max-w-sm rounded-2xl border-white/70 bg-white/88 shadow-xl backdrop-blur-md dark:border-white/10 dark:bg-black/35 sm:w-[88%]">
             <CardContent className="p-4">
               <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400">
                 Instruction Sequence

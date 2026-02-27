@@ -7,7 +7,11 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/60">
       <div className="container flex h-16 items-center mx-auto px-4 max-w-5xl justify-between">
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-2 cursor-pointer" onClick={() => {
+          window.history.pushState({}, '', window.location.pathname);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}>
           {/* Logo — matches favicon gradient */}
           <div className="h-8 w-8 rounded-lg bg-[#11131a] flex items-center justify-center shadow-sm shrink-0">
             <svg viewBox="0 0 32 32" width="20" height="20" aria-hidden="true">

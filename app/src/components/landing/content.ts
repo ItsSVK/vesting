@@ -7,6 +7,7 @@ import {
   Sparkles,
   ArrowUpToLine,
   Waypoints,
+  FileCode2,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -70,6 +71,11 @@ export const TRUST_POINTS: LandingTrustPoint[] = [
     title: 'Predictable accounting',
     description: 'Cliff, frequency, total withdrawn, and active state are tracked on-chain for deterministic vesting math.',
     icon: CircleDollarSign,
+  },
+  {
+    title: 'Fully auditable & transparent',
+    description: 'The smart contract and application code are open-source, allowing anyone to verify the security and logic.',
+    icon: FileCode2,
   },
 ];
 

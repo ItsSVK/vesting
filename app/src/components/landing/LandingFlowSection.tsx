@@ -26,7 +26,7 @@ export function LandingFlowSection() {
           return (
             <RevealSection key={step.title} delay={80 + index * 70}>
               <Card className="group relative h-full overflow-hidden rounded-3xl border-black/10 bg-white/75 shadow-sm transition-all duration-500 hover:-translate-y-1.5 hover:shadow-[0_22px_50px_-34px_rgba(0,0,0,0.55)] dark:border-white/15 dark:bg-white/5">
-                <div className={`pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b ${step.accentClass}`} />
+                <div className={`pointer-events-none absolute inset-x-0 top-0 h-20 bg-linear-to-b ${step.accentClass}`} />
                 <CardContent className="relative space-y-4 p-5">
                   <div className="flex items-center justify-between">
                     <div className="flex size-11 items-center justify-center rounded-2xl border border-black/10 bg-white/85 text-neutral-700 transition-transform duration-500 group-hover:scale-105 dark:border-white/15 dark:bg-white/10 dark:text-neutral-100">

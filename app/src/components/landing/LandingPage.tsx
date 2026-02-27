@@ -1,6 +1,7 @@
 import { formatTokenAmount } from '../../lib/formatters';
 import { useVestingContext } from '../../context/VestingDashboardContext';
 import { LandingCtaSection } from './LandingCtaSection';
+import { LandingContractCodeSection } from './LandingContractCodeSection';
 import { LandingFlowSection } from './LandingFlowSection';
 import { LandingHero } from './LandingHero';
 import { LandingTrustSection } from './LandingTrustSection';
@@ -19,6 +20,7 @@ export function LandingPage() {
       />
 
       <LandingFlowSection />
+      <LandingContractCodeSection />
       <LandingTrustSection />
       <LandingCtaSection connected={connected} />
     </section>
