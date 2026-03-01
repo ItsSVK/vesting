@@ -8,6 +8,9 @@ skip-lint = false
 [programs.localnet]
 capstone_vesting_vault = "AD8rbtNK1GW3u6yVJxr3zGKf2hhTuGs9zCmsidhpR982"
 
+[programs.devnet]
+capstone_vesting_vault = "AD8rbtNK1GW3u6yVJxr3zGKf2hhTuGs9zCmsidhpR982"
+
 [registry]
 url = "https://api.apr.dev"
 
@@ -17,3 +20,4 @@ wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 \"tests/**/*.ts\""
+# test-devnet = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 \"tests/devnet_integration.ts\""

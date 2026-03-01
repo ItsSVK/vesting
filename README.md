@@ -1,5 +1,7 @@
 # Capstone Vesting Vault
 
+**Deployed Program ID (Devnet):** [`AD8rbtNK1GW3u6yVJxr3zGKf2hhTuGs9zCmsidhpR982`](https://explorer.solana.com/address/AD8rbtNK1GW3u6yVJxr3zGKf2hhTuGs9zCmsidhpR982?cluster=devnet)
+
 A Solana-based token vesting application built using the Anchor framework and React. This project enables organizations (grantors) to create customizable token vesting schedules for employees, investors, or other stakeholders (beneficiaries), ensuring a secure and structured release of tokens over time.
 
 ## Project Structure
@@ -10,8 +12,13 @@ The repository is modularized into two primary parts:
 
 ## Features
 
+![Platform Reliability](./assets/reliability.png)
+
 ### Smart Contract functionality
 The on-chain program provides the following core instructions:
+
+![Contract Flow](./assets/contract-flow.png)
+
 - **Initialize**: Create a new vesting schedule with configurable parameters (start time, cliff time, vesting duration, total amount, and release frequency). The tokens are securely locked inside a Vault.
 - **Withdraw**: Beneficiaries can seamlessly claim their unlocked (vested) tokens at any time after the cliff period has passed. Partial withdrawals are tracked on-chain.
 - **Revoke**: Grantors have the ability to explicitly revoke an active vesting schedule, recovering the remaining unvested tokens.
@@ -55,6 +62,11 @@ Ensure you have the following installed on your machine:
    ```bash
    anchor test
    ```
+
+Below is the execution result of the full Devnet test lifecycle:
+
+![Devnet Integration Test Results](./assets/test-result.png)
+
 4. Deploy the program to your target cluster (e.g., localnet, devnet):
    ```bash
    anchor deploy

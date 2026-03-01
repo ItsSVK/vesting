@@ -535,7 +535,7 @@ export function LandingContractCodeSection() {
               {/* Conservation Check */}
               <div
                 className={cn(
-                  'rounded-xl border p-4 text-sm',
+                  'flex min-h-[110px] flex-col justify-center rounded-xl border p-4 text-sm',
                   currentStep.metrics.isConserved
                     ? 'border-green-200/50 bg-green-50/30 text-green-800 dark:border-green-800/30 dark:bg-green-950/20 dark:text-green-200'
                     : 'border-destructive/50 bg-destructive/5 text-destructive dark:border-destructive'
@@ -557,58 +557,62 @@ export function LandingContractCodeSection() {
           <Card className="h-full rounded-2xl border-border bg-gray-900 text-gray-100 shadow-lg">
             <CardContent className="flex h-full flex-col gap-5 p-5 sm:p-6">
               {/* Current Step Info */}
-              <div className="space-y-3">
-                <div className="inline-flex items-center gap-2 rounded-full bg-blue-500/20 px-3 py-1 text-xs font-medium text-blue-300">
+              <div className="flex min-h-[140px] flex-col justify-end space-y-3">
+                <div className="inline-flex max-w-fit items-center gap-2 rounded-full bg-blue-500/20 px-3 py-1 text-xs font-medium text-blue-300">
                   <span className="size-2 rounded-full bg-blue-400" />
                   Current State
                 </div>
                 <h3 className="text-2xl font-bold tracking-tight text-white">{currentStep.title}</h3>
-                <p className="text-base leading-relaxed text-gray-300">{currentStep.detail}</p>
+                <p className="min-h-12 text-base leading-relaxed text-gray-300 sm:min-h-18">{currentStep.detail}</p>
               </div>
 
               {/* Contract Code */}
 
-              <div className="flex-1">
-                <div className="rounded-xl border border-gray-700 bg-gray-800 p-4">
-                  <div className="mb-2 flex items-center gap-2">
+              <div className="flex-1 min-h-[160px]">
+                <div className="flex h-full flex-col rounded-xl border border-gray-700 bg-gray-800 p-4">
+                  <div className="mb-2 flex shrink-0 items-center gap-2">
                     <div className="size-3 rounded-full bg-red-500" />
                     <div className="size-3 rounded-full bg-yellow-500" />
                     <div className="size-3 rounded-full bg-green-500" />
                     <span className="ml-2 text-xs font-medium text-gray-400">Rust/Solidity-like pseudocode</span>
                   </div>
-                  <pre className="max-h-40 overflow-y-auto text-xs leading-relaxed text-gray-200 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+                  <pre className="flex-1 overflow-y-auto text-xs leading-relaxed text-gray-200 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
                     <code className="whitespace-pre-wrap wrap-break-word">{currentStep.code}</code>
                   </pre>
                 </div>
               </div>
 
               {/* Live Transfer */}
-              <div className="rounded-xl border border-gray-700 bg-gray-800 p-4">
-                <h4 className="mb-3 text-sm font-semibold text-gray-200">Live Transfer</h4>
-                {currentStep.transfer ? (
-                  <div className="space-y-3">
-                    <div className="inline-flex items-center gap-2 rounded-full bg-blue-500/20 px-3 py-1.5 text-sm font-medium text-blue-300">
-                      <ArrowRightLeft className="size-4" />
-                      {currentStep.transfer.note}
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="rounded-lg bg-gray-700 px-3 py-2 text-sm">
-                        <span className="font-medium text-gray-200">{currentStep.transfer.from}</span>
+              <div className="flex h-[180px] flex-col rounded-xl border border-gray-700 bg-gray-800 p-4">
+                <h4 className="mb-3 shrink-0 text-sm font-semibold text-gray-200">Live Transfer</h4>
+                <div className="flex flex-1 flex-col justify-center">
+                  {currentStep.transfer ? (
+                    <div className="space-y-3">
+                      <div className="inline-flex w-full items-center justify-center gap-2 pb-1 text-sm font-medium text-blue-300">
+                        <ArrowRightLeft className="size-4" />
+                        {currentStep.transfer.note}
                       </div>
-                      <ArrowRight className="size-5 text-blue-400" />
-                      <div className="rounded-lg bg-gray-700 px-3 py-2 text-sm">
-                        <span className="font-medium text-gray-200">{currentStep.transfer.to}</span>
+                      <div className="flex items-center justify-between">
+                        <div className="min-w-0 flex-1 rounded-lg bg-gray-700 px-3 py-2 text-center text-sm">
+                          <span className="block truncate font-medium text-gray-200">{currentStep.transfer.from}</span>
+                        </div>
+                        <div className="px-3 text-blue-400">
+                          <ArrowRight className="size-5" />
+                        </div>
+                        <div className="min-w-0 flex-1 rounded-lg bg-gray-700 px-3 py-2 text-center text-sm">
+                          <span className="block truncate font-medium text-gray-200">{currentStep.transfer.to}</span>
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-lg font-bold tracking-tight text-blue-300">{formatAmount(currentStep.transfer.amount)}</p>
                       </div>
                     </div>
-                    <div className="text-center">
-                      <p className="text-lg font-bold text-blue-300">{formatAmount(currentStep.transfer.amount)}</p>
+                  ) : (
+                    <div className="flex h-full items-center justify-center rounded-lg bg-gray-700/50">
+                      <p className="text-gray-400">No token transfer in this step</p>
                     </div>
-                  </div>
-                ) : (
-                  <div className="flex h-24 items-center justify-center rounded-lg bg-gray-700/50">
-                    <p className="text-gray-400">No token transfer in this step</p>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
               {/* Status Indicators */}
