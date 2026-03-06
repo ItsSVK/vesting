@@ -26,7 +26,7 @@ export interface VestingDashboardController {
   filteredSchedules: DecoratedSchedule[];
   partialWithdrawInputs: Record<string, string>;
   updatePartialWithdrawInput: (scheduleKey: string, value: string) => void;
-  setPartialWithdrawMax: (scheduleKey: string, value: BN) => void;
+  setPartialWithdrawMax: (scheduleKey: string, value: BN, decimals: number) => void;
   clearSearch: () => void;
   refetch: () => Promise<unknown>;
   handleClaim: (schedule: DecoratedSchedule, requestedRawAmount?: BN) => Promise<void>;

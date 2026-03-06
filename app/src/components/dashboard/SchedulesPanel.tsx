@@ -87,7 +87,7 @@ export function SchedulesPanel() {
                   nowUnix={nowUnix}
                   partialInput={partialWithdrawInputs[scheduleKey] ?? ''}
                   onPartialInputChange={(value) => updatePartialWithdrawInput(scheduleKey, value)}
-                  onPartialMax={() => setPartialWithdrawMax(scheduleKey, schedule.claimableRaw)}
+                  onPartialMax={() => setPartialWithdrawMax(scheduleKey, schedule.claimable, schedule.decimals)}
                   processingActionKey={processingActionKey}
                   claimingAll={claimingAll}
                   onClaim={async (schedule: DecoratedSchedule, requestedRawAmount?: BN) => {
