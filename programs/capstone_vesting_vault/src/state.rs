@@ -14,6 +14,7 @@ pub struct VestingState {
     pub is_active: bool,
     pub revoked_at: u64,
     pub frequency: u64,
+    pub vesting_id: u64,
     pub bump: u8,
 }
 
@@ -39,5 +40,22 @@ impl VestingState {
 
         let vested = completed_periods.checked_mul(tokens_per_period)?;
         Some(vested.min(self.total_amount))
+    }
+}
+
+#[account]
+pub struct VestingCounter {
+    pub counter: u64,
+}
+
+impl VestingCounter {
+    pub const LEN: usize = 8 + core::mem::size_of::<VestingCounter>();
+
+    pub fn get_counter(&self) -> u64 {
+        self.counter
+    }
+
+    pub fn set_counter(&mut self, counter: u64) {
+        self.counter = counter;
     }
 }

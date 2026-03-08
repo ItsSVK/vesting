@@ -18,10 +18,13 @@ pub struct Close<'info> {
             b"vesting_state",
             grantor.key().as_ref(),
             beneficiary.key().as_ref(),
-            token_mint.key().as_ref()
+            vesting_state.token_mint.as_ref(),
+            &vesting_state.vesting_id.to_le_bytes()
         ],
         bump = vesting_state.bump,
-        has_one = grantor
+        has_one = grantor,
+        has_one = beneficiary,
+        has_one = token_mint
     )]
     pub vesting_state: Account<'info, VestingState>,
     #[account(
@@ -52,11 +55,13 @@ pub fn handler(ctx: Context<Close>) -> Result<()> {
 
     // Determine seeds for signing
     let token_mint_key = ctx.accounts.token_mint.key();
+    let vesting_id_bytes = ctx.accounts.vesting_state.vesting_id.to_le_bytes();
     let signer_seeds = [
         b"vesting_state".as_ref(),
         ctx.accounts.grantor.key.as_ref(),
         ctx.accounts.beneficiary.key.as_ref(),
         token_mint_key.as_ref(),
+        &vesting_id_bytes,
         &[ctx.accounts.vesting_state.bump],
     ];
 

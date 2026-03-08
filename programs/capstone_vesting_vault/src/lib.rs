@@ -11,7 +11,7 @@ pub use error::*;
 pub use instructions::*;
 pub use state::*;
 
-declare_id!("AD8rbtNK1GW3u6yVJxr3zGKf2hhTuGs9zCmsidhpR982");
+declare_id!("EDvXbAVxW72dDzMd6ZGaSYVGJxnENFyPw8Y77YSDAU2H");
 
 #[program]
 pub mod capstone_vesting_vault {

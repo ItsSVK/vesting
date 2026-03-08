@@ -1,6 +1,6 @@
 # Capstone Vesting Vault
 
-**Deployed Program ID (Devnet):** [`AD8rbtNK1GW3u6yVJxr3zGKf2hhTuGs9zCmsidhpR982`](https://explorer.solana.com/address/AD8rbtNK1GW3u6yVJxr3zGKf2hhTuGs9zCmsidhpR982?cluster=devnet)
+**Deployed Program ID (Devnet):** [`EDvXbAVxW72dDzMd6ZGaSYVGJxnENFyPw8Y77YSDAU2H`](https://explorer.solana.com/address/EDvXbAVxW72dDzMd6ZGaSYVGJxnENFyPw8Y77YSDAU2H?cluster=devnet)
 
 A Solana-based token vesting application built using the Anchor framework and React. This project enables organizations (grantors) to create customizable token vesting schedules for employees, investors, or other stakeholders (beneficiaries), ensuring a secure and structured release of tokens over time.
 

@@ -1,5 +1,5 @@
 {
-  "address": "AD8rbtNK1GW3u6yVJxr3zGKf2hhTuGs9zCmsidhpR982",
+  "address": "EDvXbAVxW72dDzMd6ZGaSYVGJxnENFyPw8Y77YSDAU2H",
   "metadata": {
     "name": "capstone_vesting_vault",
     "version": "0.1.0",
@@ -29,7 +29,10 @@
           ]
         },
         {
-          "name": "beneficiary"
+          "name": "beneficiary",
+          "relations": [
+            "vesting_state"
+          ]
         },
         {
           "name": "vesting_state",
@@ -64,7 +67,13 @@
               },
               {
                 "kind": "account",
-                "path": "token_mint"
+                "path": "vesting_state.token_mint",
+                "account": "VestingState"
+              },
+              {
+                "kind": "account",
+                "path": "vesting_state.vesting_id",
+                "account": "VestingState"
               }
             ]
           }
@@ -127,7 +136,10 @@
           }
         },
         {
-          "name": "token_mint"
+          "name": "token_mint",
+          "relations": [
+            "vesting_state"
+          ]
         },
         {
           "name": "token_program"
@@ -225,6 +237,46 @@
           }
         },
         {
+          "name": "vesting_counter",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  101,
+                  115,
+                  116,
+                  105,
+                  110,
+                  103,
+                  95,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "grantor"
+              },
+              {
+                "kind": "account",
+                "path": "beneficiary"
+              },
+              {
+                "kind": "account",
+                "path": "token_mint"
+              }
+            ]
+          }
+        },
+        {
           "name": "vesting_state",
           "writable": true,
           "pda": {
@@ -258,6 +310,11 @@
               {
                 "kind": "account",
                 "path": "token_mint"
+              },
+              {
+                "kind": "account",
+                "path": "vesting_counter.counter",
+                "account": "VestingCounter"
               }
             ]
           }
@@ -415,7 +472,13 @@
               },
               {
                 "kind": "account",
-                "path": "token_mint"
+                "path": "vesting_state.token_mint",
+                "account": "VestingState"
+              },
+              {
+                "kind": "account",
+                "path": "vesting_state.vesting_id",
+                "account": "VestingState"
               }
             ]
           }
@@ -478,7 +541,10 @@
           }
         },
         {
-          "name": "token_mint"
+          "name": "token_mint",
+          "relations": [
+            "vesting_state"
+          ]
         },
         {
           "name": "grantor_ata",
@@ -611,7 +677,13 @@
               },
               {
                 "kind": "account",
-                "path": "token_mint"
+                "path": "vesting_state.token_mint",
+                "account": "VestingState"
+              },
+              {
+                "kind": "account",
+                "path": "vesting_state.vesting_id",
+                "account": "VestingState"
               }
             ]
           }
@@ -674,7 +746,10 @@
           }
         },
         {
-          "name": "token_mint"
+          "name": "token_mint",
+          "relations": [
+            "vesting_state"
+          ]
         },
         {
           "name": "beneficiary_ata",
@@ -754,6 +829,19 @@
     }
   ],
   "accounts": [
+    {
+      "name": "VestingCounter",
+      "discriminator": [
+        78,
+        124,
+        224,
+        128,
+        163,
+        53,
+        248,
+        198
+      ]
+    },
     {
       "name": "VestingState",
       "discriminator": [
@@ -835,6 +923,16 @@
       "code": 6013,
       "name": "VestingScheduleAlreadyExists",
       "msg": "Vesting schedule already exists"
+    },
+    {
+      "code": 6014,
+      "name": "MathOverflow",
+      "msg": "Math overflow"
+    },
+    {
+      "code": 6015,
+      "name": "VestingCounterOverflow",
+      "msg": "Vesting counter overflow"
     }
   ],
   "types": [
@@ -863,6 +961,18 @@
           },
           {
             "name": "Year"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VestingCounter",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "counter",
+            "type": "u64"
           }
         ]
       }
@@ -914,6 +1024,10 @@
           },
           {
             "name": "frequency",
+            "type": "u64"
+          },
+          {
+            "name": "vesting_id",
             "type": "u64"
           },
           {

@@ -39,7 +39,7 @@ export function CreateScheduleDialog() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { program, wallet } = useWorkspace();
-  const { data: existingSchedules = [], refetch } = useVestingSchedules();
+  const { refetch } = useVestingSchedules();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -73,28 +73,28 @@ export function CreateScheduleDialog() {
         const beneficiaryPubkey = new PublicKey(values.beneficiary);
         const tokenMintPubkey = new PublicKey(values.tokenMint);
 
-        const scheduleExists = existingSchedules.some((item: unknown) => {
-          const account = (item as {
-            account?: {
-              grantor: PublicKey;
-              beneficiary: PublicKey;
-              tokenMint: PublicKey;
-            };
-          }).account;
-          if (!account) return false;
+        // const scheduleExists = existingSchedules.some((item: unknown) => {
+        //   const account = (item as {
+        //     account?: {
+        //       grantor: PublicKey;
+        //       beneficiary: PublicKey;
+        //       tokenMint: PublicKey;
+        //     };
+        //   }).account;
+        //   if (!account) return false;
 
-          return (
-            account.grantor.toString() === wallet.publicKey.toString() &&
-            account.beneficiary.toString() === beneficiaryPubkey.toString() &&
-            account.tokenMint.toString() === tokenMintPubkey.toString()
-          );
-        });
-        if (scheduleExists) {
-          toast.error("Schedule already exists", {
-            description: "A vesting schedule for this beneficiary and mint already exists for your wallet.",
-          });
-          return;
-        }
+        //   return (
+        //     account.grantor.toString() === wallet.publicKey.toString() &&
+        //     account.beneficiary.toString() === beneficiaryPubkey.toString() &&
+        //     account.tokenMint.toString() === tokenMintPubkey.toString()
+        //   );
+        // });
+        // if (scheduleExists) {
+        //   toast.error("Schedule already exists", {
+        //     description: "A vesting schedule for this beneficiary and mint already exists for your wallet.",
+        //   });
+        //   return;
+        // }
         
         // Contract now takes raw durations — it multiplies by the unit internally
         const cliffDuration = new BN(values.cliffDuration);
@@ -118,12 +118,28 @@ export function CreateScheduleDialog() {
         const unit = TimeUnit[values.unit];
 
         // PDAs and ATAs
+        const [vestingCounterPda] = PublicKey.findProgramAddressSync(
+            [
+              Buffer.from("vesting_counter"),
+              wallet.publicKey.toBuffer(),
+              beneficiaryPubkey.toBuffer(),
+              tokenMintPubkey.toBuffer(),
+            ],
+            program.programId
+        );
+
+        // Get the data of vestingCounterPda
+        // Fetch all vesting accounts where the user is either the grantor or beneficiary
+        // @ts-expect-error - dynamic IDL parsing might not give perfect types
+        const vestingCounterData = await program.account.vestingCounter.fetch(vestingCounterPda);
+
         const [vestingStatePda] = PublicKey.findProgramAddressSync(
             [
               Buffer.from("vesting_state"),
               wallet.publicKey.toBuffer(),
               beneficiaryPubkey.toBuffer(),
               tokenMintPubkey.toBuffer(),
+              vestingCounterData.counter.toArrayLike(Buffer, "le", 8)
             ],
             program.programId
         );
@@ -134,6 +150,7 @@ export function CreateScheduleDialog() {
             .initialize(cliffDuration, vestingDuration, amount, frequency, unit)
             .accounts({
                 grantor: wallet.publicKey,
+                vestingCounter: vestingCounterPda,
                 beneficiary: beneficiaryPubkey,
                 tokenMint: tokenMintPubkey,
                 grantorAta,

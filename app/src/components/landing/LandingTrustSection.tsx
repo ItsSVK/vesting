@@ -7,7 +7,8 @@ const SEED_SNIPPET = `seeds = [
   b"vesting_state",
   grantor,
   beneficiary,
-  token_mint
+  token_mint,
+  counter
 ]`;
 
 export function LandingTrustSection() {

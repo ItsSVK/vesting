@@ -27,4 +27,8 @@ pub enum VestingError {
     FrequencyExceedsVestingDuration,
     #[msg("Vesting schedule already exists")]
     VestingScheduleAlreadyExists,
+    #[msg("Math overflow")]
+    MathOverflow,
+    #[msg("Vesting counter overflow")]
+    VestingCounterOverflow,
 }

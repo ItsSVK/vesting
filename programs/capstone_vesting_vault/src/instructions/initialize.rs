@@ -4,8 +4,8 @@ use anchor_spl::{
     token_interface::{transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked},
 };
 
-use crate::VestingError;
 use crate::VestingState;
+use crate::{VestingCounter, VestingError};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]
 pub enum TimeUnit {
@@ -37,13 +37,28 @@ pub struct Initialize<'info> {
     pub grantor_ata: InterfaceAccount<'info, TokenAccount>,
 
     #[account(
+        init_if_needed,
+        payer = grantor,
+        seeds = [
+            b"vesting_counter",
+            grantor.key().as_ref(),
+            beneficiary.key().as_ref(),
+            token_mint.key().as_ref()
+        ],
+        space = VestingCounter::LEN,
+        bump
+    )]
+    pub vesting_counter: Account<'info, VestingCounter>,
+
+    #[account(
         init,
         payer = grantor,
         seeds = [
             b"vesting_state",
             grantor.key().as_ref(),
             beneficiary.key().as_ref(),
-            token_mint.key().as_ref()
+            token_mint.key().as_ref(),
+            &vesting_counter.counter.to_le_bytes()
         ],
         space = VestingState::DISCRIMINATOR.len() + VestingState::INIT_SPACE,
         bump
@@ -73,6 +88,7 @@ pub fn handler(
     unit: TimeUnit,
 ) -> Result<()> {
     let start_time = Clock::get()?.unix_timestamp as u64;
+    let vesting_id = ctx.accounts.vesting_counter.get_counter();
 
     require_gt!(total_amount, 0, VestingError::ZeroAmount);
 
@@ -103,9 +119,21 @@ pub fn handler(
         TimeUnit::Year => 60 * 60 * 24 * 365,
     };
 
-    let vesting_duration = vesting_duration * multiplier;
-    let frequency = frequency * multiplier;
-    let cliff_duration = cliff_duration * multiplier;
+    let vesting_duration = vesting_duration
+        .checked_mul(multiplier)
+        .ok_or(VestingError::MathOverflow)?;
+    let frequency = frequency
+        .checked_mul(multiplier)
+        .ok_or(VestingError::MathOverflow)?;
+    let cliff_duration = cliff_duration
+        .checked_mul(multiplier)
+        .ok_or(VestingError::MathOverflow)?;
+    let cliff_time = start_time
+        .checked_add(cliff_duration)
+        .ok_or(VestingError::MathOverflow)?;
+    let vesting_end_time = start_time
+        .checked_add(vesting_duration)
+        .ok_or(VestingError::MathOverflow)?;
     // let start_time = start_time * multiplier;
 
     transfer_checked(
@@ -126,16 +154,22 @@ pub fn handler(
         grantor: ctx.accounts.grantor.key(),
         beneficiary: ctx.accounts.beneficiary.key(),
         start_time,
-        cliff_time: start_time + cliff_duration,
-        vesting_end_time: start_time + vesting_duration,
+        cliff_time,
+        vesting_end_time,
         total_amount,
         total_withdrawn: 0,
         token_mint: ctx.accounts.token_mint.key(),
         is_active: true,
         revoked_at: 0,
         frequency,
+        vesting_id,
         bump: ctx.bumps.vesting_state,
     });
+
+    let next_counter = vesting_id
+        .checked_add(1)
+        .ok_or(VestingError::VestingCounterOverflow)?;
+    ctx.accounts.vesting_counter.set_counter(next_counter);
 
     Ok(())
 }

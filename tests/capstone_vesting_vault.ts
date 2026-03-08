@@ -112,10 +112,28 @@ function createMintAndMintTo(
 }
 
 /** Derives the vesting_state PDA */
-function deriveVestingState(
+function deriveVestingCounter(
   grantor: PublicKey,
   beneficiary: PublicKey,
   tokenMint: PublicKey
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("vesting_counter"),
+      grantor.toBuffer(),
+      beneficiary.toBuffer(),
+      tokenMint.toBuffer(),
+    ],
+    PROGRAM_ID
+  );
+}
+
+/** Derives the vesting_state PDA */
+function deriveVestingState(
+  grantor: PublicKey,
+  beneficiary: PublicKey,
+  tokenMint: PublicKey,
+  counter: number | bigint = new BN(0)
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
     [
@@ -123,6 +141,7 @@ function deriveVestingState(
       grantor.toBuffer(),
       beneficiary.toBuffer(),
       tokenMint.toBuffer(),
+      new BN(counter.toString()).toArrayLike(Buffer, "le", 8)
     ],
     PROGRAM_ID
   );
@@ -276,6 +295,7 @@ describe("capstone_vesting_vault – initialize", () => {
       .initialize(cliffDuration, vestingDuration, totalAmount, frequency, UNIT)
       .accounts({
         grantor: grantor.publicKey,
+        vestingCounter: deriveVestingCounter(grantor.publicKey, beneficiary.publicKey, mintKp.publicKey)[0],
         beneficiary: beneficiary.publicKey,
         tokenMint: mintKp.publicKey,
         grantorAta,
@@ -311,7 +331,8 @@ describe("capstone_vesting_vault – initialize", () => {
 
     const ix = await prog.methods
       .initialize(cliffDuration, vestingDuration, new BN(0), frequency, UNIT)
-      .accounts({ grantor: g.publicKey, beneficiary: b.publicKey, tokenMint: mint.publicKey, grantorAta: gAta, vestingState: state, vestingVault: vault, associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID, tokenProgram: TOKEN_PROGRAM_ID, systemProgram: SystemProgram.programId })
+      .accounts({ grantor: g.publicKey,
+        vestingCounter: deriveVestingCounter(g.publicKey, b.publicKey, mint.publicKey)[0], beneficiary: b.publicKey, tokenMint: mint.publicKey, grantorAta: gAta, vestingState: state, vestingVault: vault, associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID, tokenProgram: TOKEN_PROGRAM_ID, systemProgram: SystemProgram.programId })
       .instruction();
 
     const tx = new Transaction();
@@ -334,7 +355,8 @@ describe("capstone_vesting_vault – initialize", () => {
 
     const ix = await prog.methods
       .initialize(new BN(0), vestingDuration, totalAmount, frequency, UNIT)
-      .accounts({ grantor: g.publicKey, beneficiary: b.publicKey, tokenMint: mint.publicKey, grantorAta: gAta, vestingState: state, vestingVault: vault, associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID, tokenProgram: TOKEN_PROGRAM_ID, systemProgram: SystemProgram.programId })
+      .accounts({ grantor: g.publicKey,
+        vestingCounter: deriveVestingCounter(g.publicKey, b.publicKey, mint.publicKey)[0], beneficiary: b.publicKey, tokenMint: mint.publicKey, grantorAta: gAta, vestingState: state, vestingVault: vault, associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID, tokenProgram: TOKEN_PROGRAM_ID, systemProgram: SystemProgram.programId })
       .instruction();
 
     const tx = new Transaction();
@@ -358,7 +380,8 @@ describe("capstone_vesting_vault – initialize", () => {
     // cliff_duration (100 days) > vesting_duration (90 days) → should fail
     const ix = await prog.methods
       .initialize(new BN(ONE_DAY * 100), new BN(NINETY_DAYS), totalAmount, frequency, UNIT)
-      .accounts({ grantor: g.publicKey, beneficiary: b.publicKey, tokenMint: mint.publicKey, grantorAta: gAta, vestingState: state, vestingVault: vault, associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID, tokenProgram: TOKEN_PROGRAM_ID, systemProgram: SystemProgram.programId })
+      .accounts({ grantor: g.publicKey,
+        vestingCounter: deriveVestingCounter(g.publicKey, b.publicKey, mint.publicKey)[0], beneficiary: b.publicKey, tokenMint: mint.publicKey, grantorAta: gAta, vestingState: state, vestingVault: vault, associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID, tokenProgram: TOKEN_PROGRAM_ID, systemProgram: SystemProgram.programId })
       .instruction();
 
     const tx = new Transaction();
@@ -382,7 +405,8 @@ describe("capstone_vesting_vault – initialize", () => {
     // frequency (120 days) > vesting_duration (90 days) → should fail
     const ix = await prog.methods
       .initialize(cliffDuration, new BN(NINETY_DAYS), totalAmount, new BN(ONE_DAY * 120), UNIT)
-      .accounts({ grantor: g.publicKey, beneficiary: b.publicKey, tokenMint: mint.publicKey, grantorAta: gAta, vestingState: state, vestingVault: vault, associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID, tokenProgram: TOKEN_PROGRAM_ID, systemProgram: SystemProgram.programId })
+      .accounts({ grantor: g.publicKey,
+        vestingCounter: deriveVestingCounter(g.publicKey, b.publicKey, mint.publicKey)[0], beneficiary: b.publicKey, tokenMint: mint.publicKey, grantorAta: gAta, vestingState: state, vestingVault: vault, associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID, tokenProgram: TOKEN_PROGRAM_ID, systemProgram: SystemProgram.programId })
       .instruction();
 
     const tx = new Transaction();
@@ -404,7 +428,8 @@ describe("capstone_vesting_vault – initialize", () => {
 
     const ix = await prog.methods
       .initialize(cliffDuration, vestingDuration, totalAmount, frequency, UNIT)
-      .accounts({ grantor: g.publicKey, beneficiary: g.publicKey, tokenMint: mint.publicKey, grantorAta: gAta, vestingState: state, vestingVault: vault, associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID, tokenProgram: TOKEN_PROGRAM_ID, systemProgram: SystemProgram.programId })
+      .accounts({ grantor: g.publicKey,
+        vestingCounter: deriveVestingCounter(g.publicKey, g.publicKey, mint.publicKey)[0], beneficiary: g.publicKey, tokenMint: mint.publicKey, grantorAta: gAta, vestingState: state, vestingVault: vault, associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID, tokenProgram: TOKEN_PROGRAM_ID, systemProgram: SystemProgram.programId })
       .instruction();
 
     const tx = new Transaction();
@@ -536,6 +561,7 @@ describe("capstone_vesting_vault – withdraw", () => {
       .initialize(cliffDuration, vestDuration, totalAmount, frequency, UNIT)
       .accounts({
         grantor: grantor.publicKey,
+        vestingCounter: deriveVestingCounter(grantor.publicKey, beneficiary.publicKey, mintKp.publicKey)[0],
         beneficiary: beneficiary.publicKey,
         tokenMint: mintKp.publicKey,
         grantorAta,
@@ -683,6 +709,7 @@ describe("capstone_vesting_vault – revoke", () => {
       .initialize(cliffDuration, vestDuration, totalAmount, frequency, UNIT)
       .accounts({
         grantor: grantor.publicKey,
+        vestingCounter: deriveVestingCounter(grantor.publicKey, beneficiary.publicKey, mintKp.publicKey)[0],
         beneficiary: beneficiary.publicKey,
         tokenMint: mintKp.publicKey,
         grantorAta,
